@@ -1,0 +1,7 @@
+{
+  "name": "InPost Live OCR Address Scanner",
+  "description": "Real-time courier label address extraction system optimized for the 66-600 zip code region.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
