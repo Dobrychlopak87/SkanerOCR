@@ -1,20 +1,24 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Flashline / skanerocr
 
-# Run and deploy your AI Studio app
+Offlineowy prototyp łącza optycznego telefon–telefon. Telefon A nadaje dane przez diodę LED, telefon B odbiera je kamerą, a odebrana treść jest wyświetlana jako zwykły czat.
 
-This contains everything you need to run your app locally.
+## Struktura
 
-View your app in AI Studio: https://ai.studio/apps/drive/1v9aZpTFMax0_QMJ_U4KHtl4u264h_y7u
+- `src/index.html` — jedyne źródło aplikacji; zawiera cały HTML, CSS i JavaScript.
+- `build.sh` — bezzależnościowy build kopiujący źródło do `public/index.html` oraz aktualizujący kopię `index.html` w katalogu głównym.
+- `public/index.html` — wynik budowania, gotowy do publikacji jako statyczna strona.
+- `index.html` — wygodna kopia wynikowa do otwarcia lokalnie.
 
-## Run Locally
+Nie ma npm, CDN-u, bundlera ani zewnętrznych bibliotek. Powtórzenie budowania:
 
-**Prerequisites:**  Node.js
+```sh
+./build.sh
+```
 
+Uruchomienie lokalne:
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```sh
+python3 -m http.server 3000 --directory public
+```
+
+Kamera w przeglądarce wymaga bezpiecznego kontekstu (`https://`) albo `localhost`. Zasięg 2 km jest eksperymentalny i wymaga testu terenowego; aplikacja nie może zagwarantować absolutnego braku błędów bez odpowiedniej optyki i warunków łącza.

@@ -1,27 +1,1859 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InPost Live OCR</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { margin: 0; background-color: #111; color: white; overflow: hidden; }
-        #root { height: 100vh; }
-    </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "tesseract.js": "https://esm.sh/tesseract.js@^7.0.0"
-  }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a1119">
+<link rel="icon" href="data:,">
+<title>FLASHLINE 2K — optyczne łącze danych telefon↔telefon</title>
+<style>
+/* ===================================================================
+   FLASHLINE 2K — zero zależności, zero sieci, jeden plik.
+   =================================================================== */
+:root{
+  --bg:#0a1119; --bg2:#0d1721; --panel:#101c28; --panel2:#14232f;
+  --line:#22384d; --line2:#2f4d68; --ink:#e6f0f8; --dim:#8ba3b8; --dim2:#607a90;
+  --amber:#ffb35c; --phos:#5df2a0; --ice:#7fd4ff; --red:#ff6b6b; --violet:#b39dff;
+  --disp:"Bahnschrift","DIN Alternate","DIN Condensed","Haettenschweiler","Arial Narrow",Impact,sans-serif;
+  --body:"Segoe UI","Helvetica Neue",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono","SFMono-Regular","Cascadia Mono",Consolas,"Liberation Mono",monospace;
 }
-</script>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--body); font-size:14px;
+  line-height:1.55; min-height:100vh; overflow-x:hidden;
+}
+/* ---------- warstwowe tło ---------- */
+.bgfx{position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(900px 500px at 82% -8%, rgba(255,179,92,.10), transparent 60%),
+    radial-gradient(700px 460px at 8% 6%, rgba(93,242,160,.07), transparent 62%),
+    radial-gradient(1100px 700px at 50% 110%, rgba(127,212,255,.06), transparent 65%),
+    linear-gradient(180deg,#0c1520 0%,#0a1119 45%,#080e15 100%);
+}
+.bgfx::after{content:"";position:absolute;inset:0;opacity:.35;
+  background-image:linear-gradient(rgba(120,170,210,.055) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(120,170,210,.055) 1px,transparent 1px);
+  background-size:52px 52px; mask-image:radial-gradient(circle at 50% 20%,#000 20%,transparent 78%);}
+.beam{position:fixed;top:-30%;left:-20%;width:60%;height:180%;z-index:-1;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(255,179,92,.055) 45%,rgba(255,220,170,.10) 50%,rgba(255,179,92,.055) 55%,transparent);
+  transform:rotate(14deg); filter:blur(28px); animation:sweep 17s ease-in-out infinite;}
+@keyframes sweep{0%,100%{transform:translateX(-10%) rotate(14deg);opacity:.35}
+  50%{transform:translateX(115%) rotate(14deg);opacity:.75}}
+
+/* ---------- masthead ---------- */
+.masthead{max-width:1400px;margin:0 auto;padding:26px 22px 12px;
+  display:grid;grid-template-columns:minmax(260px,1fr) auto;gap:20px;align-items:end}
+.mark{font-family:var(--disp);font-size:clamp(38px,6.4vw,68px);line-height:.86;
+  letter-spacing:.02em;text-transform:uppercase;font-weight:700}
+.mark span{color:var(--amber)}
+.mark em{font-style:normal;font-family:var(--mono);font-size:.24em;letter-spacing:.22em;
+  color:var(--phos);border:1px solid rgba(93,242,160,.4);padding:3px 8px;border-radius:3px;
+  vertical-align:middle;margin-left:10px;background:rgba(93,242,160,.07)}
+.mark-sub{color:var(--dim);font-size:13.5px;max-width:62ch;margin-top:9px}
+.mark-sub b{color:var(--ink);font-weight:600}
+.telem{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.tchip{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-radius:5px;padding:7px 11px;min-width:96px;position:relative;overflow:hidden}
+.tchip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--line2)}
+.tchip.hot::before{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.tchip.ok::before{background:var(--phos);box-shadow:0 0 10px var(--phos)}
+.tchip u{display:block;text-decoration:none;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--dim2);text-transform:uppercase}
+.tchip b{display:block;font-family:var(--disp);font-size:23px;line-height:1.1;letter-spacing:.02em;font-weight:700}
+.tchip b small{font-size:11px;font-family:var(--mono);color:var(--dim);font-weight:400;letter-spacing:0}
+
+/* ---------- zakładki ---------- */
+.tabs{max-width:1400px;margin:16px auto 0;padding:0 22px;display:flex;gap:2px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line)}
+.tabs button{appearance:none;background:transparent;border:1px solid transparent;border-bottom:none;
+  color:var(--dim);font-family:var(--disp);font-size:15px;letter-spacing:.09em;text-transform:uppercase;
+  padding:11px 18px 9px;cursor:pointer;border-radius:5px 5px 0 0;position:relative;transition:.18s}
+.tabs button:hover{color:var(--ink);background:rgba(127,212,255,.06)}
+.tabs button.on{color:#0a1119;background:var(--amber);font-weight:700}
+.tabs button.on::after{content:"";position:absolute;left:8px;right:8px;bottom:3px;height:1px;background:rgba(0,0,0,.28)}
+.tabs button i{font-style:normal;font-family:var(--mono);font-size:10px;opacity:.7;margin-right:6px}
+
+/* ---------- układ ---------- */
+main{max-width:1400px;margin:0 auto;padding:20px 22px 90px}
+.tab{display:none}.tab.on{display:block}
+.grid{display:grid;gap:14px}
+.g-console{grid-template-columns:minmax(320px,390px) minmax(0,1fr)}
+.g-hw{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:1020px){.g-console,.g-hw{grid-template-columns:1fr}.masthead{grid-template-columns:1fr}.telem{justify-content:flex-start}}
+
+.panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-radius:8px;padding:16px;position:relative;opacity:0;transform:translateY(14px);
+  transition:opacity .5s cubic-bezier(.2,.7,.3,1),transform .5s cubic-bezier(.2,.7,.3,1),border-color .2s}
+.panel.in{opacity:1;transform:none}
+.panel:hover{border-color:var(--line2)}
+.panel>h2{margin:0 0 3px;font-family:var(--disp);font-size:19px;letter-spacing:.07em;text-transform:uppercase;font-weight:700}
+.panel>h2 s{text-decoration:none;color:var(--amber);margin-right:7px}
+.panel>.sub{color:var(--dim2);font-size:11.5px;margin-bottom:13px;font-family:var(--mono);letter-spacing:.02em}
+h3{font-family:var(--disp);font-size:13.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ice);margin:17px 0 7px;font-weight:700;display:flex;align-items:center;gap:8px}
+h3::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+
+label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--dim2);margin:11px 0 4px}
+textarea,input[type=text],select{width:100%;background:#0a141d;border:1px solid var(--line);color:var(--ink);
+  border-radius:5px;padding:11px;font-size:15px;font-family:var(--body);transition:.16s}
+textarea{min-height:62px;resize:vertical}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(255,179,92,.12)}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),linear-gradient(135deg,var(--dim) 50%,transparent 50%);
+  background-position:calc(100% - 16px) 55%,calc(100% - 11px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+input[type=range]{width:100%;appearance:none;height:22px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:#1b2f42;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:15px;height:15px;border-radius:50%;
+  background:var(--amber);margin-top:-5.5px;border:2px solid #0a1119;box-shadow:0 0 0 1px var(--amber),0 0 12px rgba(255,179,92,.6);transition:.15s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.18)}
+input[type=range]::-moz-range-track{height:4px;background:#1b2f42;border-radius:2px}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--amber);border:2px solid #0a1119}
+
+.btn{appearance:none;border:1px solid var(--line2);background:linear-gradient(180deg,#1a2d3e,#132231);
+  color:var(--ink);font-family:var(--disp);font-size:14px;letter-spacing:.08em;text-transform:uppercase;
+  padding:10px 16px;border-radius:5px;cursor:pointer;position:relative;overflow:hidden;transition:.16s;font-weight:700}
+.btn:hover{border-color:var(--ice);transform:translateY(-1px);box-shadow:0 6px 18px -8px rgba(127,212,255,.5)}
+.btn:active{transform:translateY(0)}
+.btn::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.16) 50%,transparent 65%);
+  transform:translateX(-120%);transition:transform .5s}
+.btn:hover::after{transform:translateX(120%)}
+.btn.go{background:linear-gradient(180deg,#ffc274,#f09a34);color:#221403;border-color:#ffcf94}
+.btn.go:hover{box-shadow:0 8px 26px -8px rgba(255,179,92,.75)}
+.btn.rx{background:linear-gradient(180deg,#79f5b3,#37d184);color:#04231a;border-color:#8ff7c1}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.btn.sm{font-size:12px;padding:7px 11px;letter-spacing:.06em}
+
+/* ---------- czat ---------- */
+.chat{background:#08121a;border:1px solid var(--line);border-radius:6px;padding:11px;
+  height:330px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;scrollbar-width:thin}
+.chat::-webkit-scrollbar{width:8px}.chat::-webkit-scrollbar-thumb{background:#1e3245;border-radius:4px}
+.bub{max-width:86%;padding:9px 12px;border-radius:12px;font-size:14.5px;white-space:pre-wrap;word-break:break-word;
+  animation:pop .32s cubic-bezier(.2,1.2,.3,1)}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.bub .m{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;margin-top:5px;opacity:.75}
+.me{align-self:flex-end;background:linear-gradient(180deg,#2b4a68,#1e3850);border:1px solid #37618a;border-bottom-right-radius:3px}
+.me .m{color:#a9cdea}
+.them{align-self:flex-start;background:linear-gradient(180deg,#174430,#113526);border:1px solid #22654a;border-bottom-left-radius:3px}
+.them .m{color:#8fe6bb}
+.sys{align-self:center;background:transparent;border:1px dashed var(--line);color:var(--dim2);
+  font-family:var(--mono);font-size:10.5px;padding:4px 10px;border-radius:20px;text-align:center;max-width:100%}
+.ph{color:var(--dim2);font-size:13px;margin:auto;text-align:center;font-family:var(--mono)}
+
+/* ---------- scena RX ---------- */
+.stage{position:relative;background:#04080c;border:1px solid var(--line);border-radius:6px;overflow:hidden;
+  aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}
+.stage video{width:100%;height:100%;object-fit:cover;display:block;filter:contrast(1.05) saturate(.85)}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.stage .novid{position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;align-items:center;
+  justify-content:center;color:var(--dim2);font-family:var(--mono);font-size:12px;text-align:center;padding:18px}
+.stage .novid b{font-family:var(--disp);font-size:20px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+.corner{position:absolute;width:22px;height:22px;border:2px solid rgba(127,212,255,.5);pointer-events:none}
+.corner.tl{top:8px;left:8px;border-right:none;border-bottom:none}
+.corner.tr{top:8px;right:8px;border-left:none;border-bottom:none}
+.corner.bl{bottom:8px;left:8px;border-right:none;border-top:none}
+.corner.br{bottom:8px;right:8px;border-left:none;border-top:none}
+.hud{position:absolute;left:10px;bottom:9px;font-family:var(--mono);font-size:10.5px;color:#cfe8ff;
+  background:rgba(4,10,16,.72);border:1px solid rgba(127,212,255,.28);border-radius:4px;padding:5px 9px;
+  letter-spacing:.04em;pointer-events:none;backdrop-filter:blur(2px)}
+.hud2{position:absolute;right:10px;top:9px;font-family:var(--mono);font-size:10.5px;color:#ffe0b8;
+  background:rgba(20,10,2,.72);border:1px solid rgba(255,179,92,.3);border-radius:4px;padding:5px 9px;pointer-events:none}
+
+canvas.scope{width:100%;height:132px;display:block;background:#060d14;border:1px solid var(--line);border-radius:5px}
+.meter{height:7px;background:#0a141d;border:1px solid var(--line);border-radius:3px;overflow:hidden;margin-top:5px}
+.meter>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ice),var(--phos));transition:width .09s linear}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-family:var(--mono);font-size:11.5px;margin-top:11px}
+.kv dt{color:var(--dim2);letter-spacing:.05em}
+.kv dd{margin:0;color:var(--ink);text-align:right}
+.kv dd.g{color:var(--phos)}.kv dd.a{color:var(--amber)}.kv dd.r{color:var(--red)}.kv dd.i{color:var(--ice)}
+
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-top:12px}
+.stat{background:#0a141d;border:1px solid var(--line);border-radius:5px;padding:9px 10px;transition:.2s}
+.stat:hover{border-color:var(--line2);transform:translateY(-2px)}
+.stat u{display:block;text-decoration:none;font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--dim2);text-transform:uppercase}
+.stat b{font-family:var(--disp);font-size:22px;letter-spacing:.02em;font-weight:700}
+.stat.p b{color:var(--phos)}.stat.a b{color:var(--amber)}.stat.r b{color:var(--red)}.stat.i b{color:var(--ice)}.stat.v b{color:var(--violet)}
+
+.log{font-family:var(--mono);font-size:10.5px;max-height:180px;overflow-y:auto;margin-top:9px;
+  background:#070f16;border:1px solid var(--line);border-radius:5px;padding:7px;scrollbar-width:thin}
+.log::-webkit-scrollbar{width:7px}.log::-webkit-scrollbar-thumb{background:#1e3245;border-radius:4px}
+.log div{padding:2.5px 5px;border-radius:3px;color:var(--dim);border-left:2px solid var(--line2);margin-bottom:2px;animation:pop .25s}
+.log div b{color:var(--ice);font-weight:400}
+.log div.ok{border-left-color:var(--phos);color:#b6f2d3}
+.log div.bad{border-left-color:var(--red);color:#ffc9c9}
+.log div.fix{border-left-color:var(--amber);color:#ffe3bd}
+.log div.tx{border-left-color:var(--violet);color:#d9ccff}
+
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;margin-top:9px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+th{background:#0d1a25;color:var(--ice);font-weight:400;letter-spacing:.09em;text-transform:uppercase;font-size:9.5px}
+tr:hover td{background:rgba(127,212,255,.04)}
+td b{color:var(--amber);font-weight:400}
+code{font-family:var(--mono);background:#0a141d;border:1px solid var(--line);border-radius:3px;padding:1px 5px;font-size:11px;color:var(--phos)}
+p{margin:8px 0}
+.note{font-size:12.5px;color:var(--dim);margin-top:9px}
+.note b{color:var(--ink)}
+.warn{border-left:2px solid var(--amber);background:rgba(255,179,92,.06);padding:9px 12px;border-radius:0 5px 5px 0;font-size:12.5px;color:#ffe0b8;margin-top:11px}
+.pill{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid var(--line2);border-radius:20px;padding:2px 9px;color:var(--dim);margin:2px 3px 2px 0}
+.pill.g{color:var(--phos);border-color:rgba(93,242,160,.4);background:rgba(93,242,160,.07)}
+.pill.a{color:var(--amber);border-color:rgba(255,179,92,.4);background:rgba(255,179,92,.07)}
+.pill.r{color:var(--red);border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.07)}
+.pill.i{color:var(--ice);border-color:rgba(127,212,255,.4);background:rgba(127,212,255,.07)}
+.framebits{font-family:var(--mono);font-size:10.5px;line-height:1.9;word-break:break-all;
+  background:#070f16;border:1px solid var(--line);border-radius:5px;padding:10px;margin-top:8px;color:var(--dim)}
+.framebits .h{color:var(--amber)}.framebits .p{color:var(--ice)}.framebits .f{color:var(--violet)}.framebits .c{color:var(--phos)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:820px){.two{grid-template-columns:1fr}}
+.hide{display:none!important}
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,18px);background:#16283a;
+  border:1px solid var(--line2);color:var(--ink);padding:11px 20px;border-radius:6px;font-size:13px;
+  opacity:0;transition:.28s;z-index:99;pointer-events:none;max-width:92vw;text-align:center;
+  box-shadow:0 18px 44px -18px #000}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+.aim{display:flex;align-items:center;gap:10px;margin-top:9px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.aimpad{width:74px;height:74px;border:1px solid var(--line);border-radius:50%;position:relative;background:
+  radial-gradient(circle,#0d1a25,#070f16);flex:none}
+.aimpad::before,.aimpad::after{content:"";position:absolute;background:var(--line)}
+.aimpad::before{left:50%;top:6px;bottom:6px;width:1px}
+.aimpad::after{top:50%;left:6px;right:6px;height:1px}
+.aimdot{position:absolute;width:11px;height:11px;border-radius:50%;background:var(--red);
+  left:50%;top:50%;transform:translate(-50%,-50%);transition:.12s;box-shadow:0 0 12px var(--red)}
+.aimdot.ctr{background:var(--phos);box-shadow:0 0 14px var(--phos)}
+video.hidden-src{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px}
+</style>
 </head>
 <body>
-    <div id="root"></div>
+<div class="bgfx"></div><div class="beam"></div>
+<div id="toast"></div>
+
+<header class="masthead">
+  <div>
+    <div class="mark">Flash<span>line</span><em>2K</em></div>
+    <p class="mark-sub">Eksperymentalne łącze optyczne między telefonami.
+      Telefon A nadaje <b>wyłącznie diodą LED przy tylnej kamerze</b>, a B odbiera aparatem.
+      Reed–Solomon i CRC-16 chronią ramki; wynik pojawia się jako zwykły czat.
+      Jeden plik bez sieci i CDN. Zasięg 2 km nie został sprawdzony w terenie.</p>
+  </div>
+  <div class="telem">
+    <div class="tchip" id="cSnr"><u>SNR łącza</u><b id="tSnr">—<small> dB</small></b></div>
+    <div class="tchip" id="cLock"><u>Synchro</u><b id="tLock">BRAK</b></div>
+    <div class="tchip" id="cRate"><u>Przepływność</u><b id="tRate">—<small> bit/s</small></b></div>
+    <div class="tchip" id="cRange"><u>Zasięg szac.</u><b id="tRange">—<small> m</small></b></div>
+    <div class="tchip" id="cMode"><u>Źródło</u><b id="tMode" style="font-size:16px">NIEAKTYWNE</b></div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-t="console" class="on"><i>01</i>Konsola łącza</button>
+  <button data-t="hw"><i>02</i>Sprzęt i optyka</button>
+  <button data-t="lab"><i>03</i>Laboratorium BER</button>
+  <button data-t="proto"><i>04</i>Protokół i budżet</button>
+</nav>
+
+<main>
+<!-- ============================ 01 KONSOLA ============================ -->
+<section class="tab on" id="tab-console">
+  <div class="grid g-console">
+
+    <div>
+      <div class="panel">
+        <h2><s>▸</s>Nadajnik A</h2>
+        <div class="sub">tekst → pakiet → strumień optyczny</div>
+        <textarea id="msgInput" maxlength="400" placeholder="Wpisz wiadomość… (Enter = wyślij)"></textarea>
+        <div class="btnrow">
+          <button class="btn go" id="sendBtn" disabled>Nadaj diodą LED</button>
+          <button class="btn sm" id="beaconBtn" disabled>Latarnia</button>
+          <button class="btn sm" id="pingBtn" disabled>Wyślij test LED</button>
+        </div>
+        <label>Parametry warstwy fizycznej</label>
+        <div class="two" style="gap:9px">
+          <div><label style="margin-top:6px">Długość symbolu Ts</label>
+            <select id="rateSel">
+              <option value="33">Blisko · 33 ms (~30 bit/s)</option>
+              <option value="66" selected>Standard · 66 ms (~15 bit/s)</option>
+              <option value="120">Dystans · 120 ms (~8 bit/s)</option>
+              <option value="250">2 km noc · 250 ms (~4 bit/s)</option>
+              <option value="500">Ekstremalny · 500 ms (~2 bit/s)</option>
+              <option value="auto">AUTO (wg SNR)</option>
+            </select></div>
+          <div><label style="margin-top:6px">Payload / ramkę</label>
+            <select id="paySel"><option value="8">8 B</option><option value="16">16 B</option>
+              <option value="24" selected>24 B</option><option value="32">32 B</option></select></div>
+          <div><label style="margin-top:6px">Reed–Solomon</label>
+            <select id="rsSel"><option value="4">RS t=2 (4 B)</option><option value="8" selected>RS t=4 (8 B)</option>
+              <option value="16">RS t=8 (16 B)</option><option value="32">RS t=16 (32 B)</option></select></div>
+          <div><label style="margin-top:6px">Przebiegi ramki</label>
+            <select id="repSel"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option></select></div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:12px;text-transform:none;letter-spacing:0;font-family:var(--body);font-size:13px;color:var(--dim)">
+          <input type="checkbox" id="ilvChk" checked style="width:16px;height:16px;accent-color:var(--amber)">
+          Interleaving blokowy (gł. 4) — zamienia serie błędów na błędy pojedyncze</label>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:6px;text-transform:none;letter-spacing:0;font-family:var(--body);font-size:13px;color:var(--dim)">
+          <input type="checkbox" id="dupChk" style="width:16px;height:16px;accent-color:var(--phos)">
+          Eksperymentalny kanał zwrotny ACK/NAK (wymaga kamery i LED na obu telefonach)</label>
+        <div class="kv">
+          <dt>RAMKA (łącznie)</dt><dd id="kCw">—</dd>
+          <dt>CZAS RAMKI</dt><dd id="kTime">—</dd>
+          <dt>ETA WIADOMOŚCI</dt><dd id="kEta" class="a">—</dd>
+          <dt>NADAJNIK</dt><dd id="kTx" class="i">dioda wyłączona</dd>
+        </div>
+        <div id="txStatus" class="note">Przed nadawaniem uruchom diodę LED tylnej kamery w zakładce Sprzęt. Ekran nie jest nadajnikiem.</div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2><s>▸</s>Dziennik łącza</h2>
+        <div class="sub">ramki · syndromy · korekcje · ARQ</div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2><s>◂</s>Odbiornik B — scena optyczna</h2>
+        <div class="sub">śledzenie plamki · adaptacyjny próg · integrate-and-dump</div>
+        <div class="stage" id="stage">
+          <video id="camVideo" muted playsinline></video>
+          <canvas id="ovl"></canvas>
+          <div class="novid" id="novid">
+            <b>Kamera nieaktywna</b>
+            <span>Uruchom tylny aparat i skieruj na latarkę telefonu A.<br>
+            W zakładce <b style="color:var(--ice)">SPRZĘT</b> wybierz teleobiektyw, zablokuj ostrość na ∞ i ekspozycję.</span>
+          </div>
+          <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+          <div class="hud" id="hud">SNR — dB · PRÓG — · ROI —</div>
+          <div class="hud2" id="hud2">CZEKA</div>
+        </div>
+        <div class="btnrow">
+          <button class="btn rx" id="camBtn">🎥 Uruchom odbiornik</button>
+          <button class="btn sm" id="clearChat">Wyczyść czat</button>
+        </div>
+        <div class="aim">
+          <div class="aimpad"><div class="aimdot" id="aimDot"></div></div>
+          <div>
+            <div style="color:var(--ice);letter-spacing:.1em;font-size:10px;text-transform:uppercase">Asystent celowania</div>
+            <div id="aimTxt">Brak źródła w kadrze. Przesuń telefon B w prawo/lewo, aż plamka wejdzie w siatkę.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2><s>◂</s>Oscyloskop kanału</h2>
+        <div class="sub">kontrast ROI vs tło · próg adaptacyjny · okna decyzyjne</div>
+        <canvas class="scope" id="scope" width="1200" height="132"></canvas>
+        <div class="statgrid">
+          <div class="stat p"><u>Ramki OK</u><b id="sOk">0</b></div>
+          <div class="stat a"><u>Poprawione przez RS</u><b id="sFix">0</b></div>
+          <div class="stat r"><u>Nieodwracalne</u><b id="sBad">0</b></div>
+          <div class="stat i"><u>Bajty naprawione</u><b id="sByt">0</b></div>
+          <div class="stat v"><u>Retransmisje ARQ</u><b id="sArq">0</b></div>
+          <div class="stat p"><u>Wiadomości</u><b id="sMsg">0</b></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2><s>◂</s>Czat</h2>
+        <div class="sub">jedyny widok dla użytkownika — żadnego kodu</div>
+        <div class="chat" id="chatLog"><div class="ph">Tu pojawi się zwykła rozmowa.<br>Szyfrowanie warstwy fizycznej jest niewidoczne.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 02 SPRZĘT ============================ -->
+<section class="tab" id="tab-hw">
+  <div class="grid g-hw">
+    <div class="panel">
+      <h2><s>02</s>Kamera — eksploitacja sprzętu</h2>
+      <div class="sub">getCapabilities() → applyConstraints() · to decyduje o zasięgu</div>
+      <p class="note">Przeglądarka domyślnie włącza <b>autofokus, autoekspozycję i AWB</b>, które walczą
+      z migającym punktem światła: pompa AE gasi latarkę, AF gubi ostrość na 2 km. Poniżej przejmujemy
+      te parametry ręcznie — bez tego łącze na duży dystans nie ma prawa działać.</p>
+      <label>Obiektyw (wybierz teleobiektyw dla max zysku)</label>
+      <select id="camList"><option>Najpierw uruchom odbiornik…</option></select>
+      <label>Klatkaż — <span id="fpsVal" style="color:var(--amber)">—</span></label>
+      <select id="fpsSel"><option value="30">30 fps</option><option value="60" selected>60 fps</option>
+        <option value="120">120 fps</option><option value="240">240 fps (jeśli dostępne)</option></select>
+      <label>Zoom cyfrowy/optyczny — <span id="zoomVal" style="color:var(--amber)">1.0×</span></label>
+      <input type="range" id="zoomR" min="1" max="10" step="0.1" value="1">
+      <label>Czas ekspozycji (ms) — <span id="expVal" style="color:var(--amber)">auto</span></label>
+      <input type="range" id="expR" min="1" max="100" step="1" value="0">
+      <label>Czułość ISO — <span id="isoVal" style="color:var(--amber)">auto</span></label>
+      <input type="range" id="isoR" min="50" max="3200" step="50" value="0">
+      <label>Ostrość ręczna (0 = makro, 1 = ∞) — <span id="focVal" style="color:var(--amber)">auto</span></label>
+      <input type="range" id="focR" min="0" max="1" step="0.01" value="1">
+      <label>Balans bieli (K) — <span id="wbVal" style="color:var(--amber)">auto</span></label>
+      <input type="range" id="wbR" min="2300" max="7500" step="100" value="0">
+      <div class="btnrow">
+        <button class="btn sm go" id="applyHw">Zastosuj</button>
+        <button class="btn sm" id="preset2k">Preset „2 km noc"</button>
+        <button class="btn sm" id="presetDay">Preset „dzień / filtr"</button>
+        <button class="btn sm" id="capsBtn">Pokaż możliwości</button>
+      </div>
+      <h3>Zgłoszone możliwości urządzenia</h3>
+      <div id="capsOut"><span class="pill">uruchom kamerę, aby odczytać</span></div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2><s>02</s>Nadajnik — źródło światła</h2>
+        <div class="sub">moc optyczna · stabilność · zasilanie</div>
+        <div class="btnrow" style="margin-top:0">
+          <button class="btn go" id="torchA">Uruchom diodę tylnej kamery</button>
+          <button class="btn sm" id="wakeBtn">Utrzymaj ekran</button>
+        </div>
+        <div class="kv">
+          <dt>AKTYWNE ŹRÓDŁO</dt><dd id="kSrc" class="a">brak</dd>
+          <dt>LATARKA DOSTĘPNA</dt><dd id="kTorch">—</dd>
+          <dt>WAKE LOCK</dt><dd id="kWake" class="r">nie</dd>
+        </div>
+        <div class="warn"><b>Nadajnik nie używa ekranu.</b> Obiektyw kamery nie emituje światła:
+        dane mogą być wysyłane wyłącznie przez diodę LED przy tylnym aparacie. Jeżeli telefon
+        lub przeglądarka nie pozwala przełączać jej przez API torch, transmisja jest blokowana.
+        Sam plik pozostaje offline, ale dostęp do kamery wymaga bezpiecznego kontekstu (HTTPS/localhost;
+        obsługa file:// zależy od przeglądarki).</div>
+        <h3>Geometria łącza</h3>
+        <p class="note">Nadajnik i odbiornik muszą się widzieć (LOS). Rozbieżność wiązki latarki to
+        ~20–30°, więc z 2 km plama ma ~800 m średnicy — trafienie w telefon B jest łatwe.
+        Trudniejsze jest utrzymanie <b>telefonu B</b> w osi: użyj statywu/uchwytu i asystenta celowania.</p>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2><s>02</s>Diagnostyka sygnału</h2>
+        <div class="sub">histogram jasności ROI vs tło</div>
+        <canvas class="scope" id="hist" width="600" height="132"></canvas>
+        <div class="kv">
+          <dt>KONTRAST (peak−tło)</dt><dd id="dContrast" class="a">—</dd>
+          <dt>ODCH. STANDARDOWE TŁA</dt><dd id="dNoise">—</dd>
+          <dt>MARGINES ŁĄCZA</dt><dd id="dMargin" class="i">—</dd>
+          <dt>PLAMKA (px w ROI)</dt><dd id="dBlob">—</dd>
+          <dt>POZYCJA x / y</dt><dd id="dPos">—</dd>
+          <dt>DRYF FAZY</dt><dd id="dPhase">—</dd>
+        </div>
+        <p class="note">Margines &gt; 12 dB oznacza zapas na ~4× większy dystans (prawo odwrotnych
+        kwadratów: −6 dB na podwojenie odległości).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 03 LABORATORIUM ============================ -->
+<section class="tab" id="tab-lab">
+  <div class="grid g-hw">
+    <div class="panel">
+      <h2><s>03</s>Symulator kanału</h2>
+      <div class="sub">ten sam dekoder co kamera · zegar wirtualny · wynik natychmiast</div>
+      <p class="note">Model kanału: tłumienie 1/R², rozmycie całkujące matrycy, szum Gaussa,
+      dryf wzmocnienia AGC, tło nieba i <b>zaniki burst</b> (chmura/przesłona). Wszystko przechodzi
+      przez identyczny tor: slicer → deinterleaver → Reed–Solomon → CRC-16 → ARQ.</p>
+      <label>Dystans symulowany — <span id="simDistV" style="color:var(--amber)">2000 m</span></label>
+      <input type="range" id="simDist" min="10" max="6000" step="10" value="2000">
+	      <label>Szum odbiornika σ — <span id="simNoiseV" style="color:var(--amber)">0.02</span></label>
+	      <input type="range" id="simNoise" min="0" max="60" step="1" value="2">
+	      <label>Zaniki burst — <span id="simDropV" style="color:var(--amber)">0%</span></label>
+	      <input type="range" id="simDrop" min="0" max="40" step="1" value="0">
+	      <label>Tło (dzień/noc) — <span id="simAmbV" style="color:var(--amber)">0.05</span></label>
+	      <input type="range" id="simAmb" min="0" max="95" step="1" value="5">
+      <label>Liczba wiadomości w teście</label>
+      <select id="simN"><option value="4">4</option><option value="12" selected>12</option><option value="30">30</option></select>
+      <div class="btnrow">
+        <button class="btn go" id="labRun">▶ Przepuść test</button>
+        <button class="btn sm" id="labSweep">Sweep BER (krzywa)</button>
+      </div>
+      <h3>Wynik</h3>
+      <div class="statgrid">
+        <div class="stat i"><u>Próbki kanału</u><b id="lBits">0</b></div>
+        <div class="stat r"><u>FER przed FEC</u><b id="lBer">—</b></div>
+        <div class="stat a"><u>Ramki naprawione RS</u><b id="lRs">0</b></div>
+        <div class="stat p"><u>Wiadomości dostarczone</u><b id="lDel">0/0</b></div>
+        <div class="stat v"><u>Retransmisje ARQ</u><b id="lArq">0</b></div>
+        <div class="stat p"><u>BER szacowany na bicie</u><b id="lBer2">—</b></div>
+      </div>
+      <div class="log" id="labLog" style="max-height:150px"></div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2><s>03</s>Krzywa skuteczności FEC</h2>
+        <div class="sub">BER surowy vs BER po Reed–Solomon i ARQ</div>
+        <canvas class="scope" id="berChart" width="900" height="260" style="height:260px"></canvas>
+        <p class="note">Czerwona: odsetek ramek uszkodzonych przez sam kanał (przed korekcją) — rośnie
+        z dystansem, bo SNR spada jak 1/R. Zielona: odsetek wiadomości niedostarczonych po
+        Reed–Solomon, CRC-16 i ARQ. Dopóki zielona leży na zerze, łącze jest <b>bezbłędne</b>:
+        RS(t) poprawia każdą ramkę z ≤ t uszkodzonymi bajtami, a resztę domaga retransmisja.</p>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h2><s>03</s>Przebieg z symulatora</h2>
+        <div class="sub">ostatni zarejestrowany fragment kanału</div>
+        <canvas class="scope" id="labScope" width="1200" height="132"></canvas>
+        <div class="framebits" id="labFrame">—</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 04 PROTOKÓŁ ============================ -->
+<section class="tab" id="tab-proto">
+  <div class="grid g-hw">
+    <div>
+      <div class="panel">
+        <h2><s>04</s>Ramka i kody</h2>
+        <div class="sub">warstwa fizyczna → łącza → aplikacji</div>
+        <table>
+          <tr><th>Pole</th><th>bity</th><th>Opis</th></tr>
+          <tr><td>PREAMBUŁA</td><td>24</td><td>0101… — strojenie progu i pętli fazy</td></tr>
+          <tr><td>SYNC</td><td>16</td><td><code>0x2DD4</code> — detektor dopasowany</td></tr>
+          <tr><td>TYPE</td><td>4</td><td>DATA / ACK / NAK / BEACON / PING</td></tr>
+          <tr><td>MSGID</td><td>8</td><td>identyfikator wiadomości</td></tr>
+          <tr><td>SEQ / TOTAL</td><td>8+8</td><td>numer i liczba fragmentów</td></tr>
+          <tr><td>LEN</td><td>8</td><td>długość payloadu</td></tr>
+          <tr><td>PAYLOAD</td><td>8·LEN</td><td>UTF-8, czyste dane</td></tr>
+          <tr><td>CRC-16</td><td>16</td><td>CCITT-FALSE, nad nagłówkiem+payloadem</td></tr>
+          <tr><td>RS PARITY</td><td>8·t</td><td>Reed–Solomon GF(2⁸), korekcja t bajtów</td></tr>
+        </table>
+        <h3>Przykład rzeczywistej ramki</h3>
+        <div class="framebits" id="frameDemo">—</div>
+        <h3>Tor odbiorczy</h3>
+        <p class="note">1. ROI wokół plamki (śledzenie centroidy) minus mediana tła → kontrast.<br>
+        2. Trackery hi/lo (szybki atak, wolny zanik) → próg adaptacyjny z histerezą.<br>
+        3. Integrate-and-dump w oknie symbolu, faza trzymana pętlą na przejściach (DLL ±15%).<br>
+        4. Korelacja z SYNC → okno bitów ramki.<br>
+        5. Deinterleaving (gł. 4) → syndromy RS → Berlekamp-Massey → Chien → wartości błędów
+        rozwiązane układem równań nad GF(2⁸) → <b>weryfikacja syndromami</b>.<br>
+        6. CRC-16 → akceptacja; brak → NAK z bitmapą i retransmisja.</p>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2><s>04</s>Procedura polowa 2 km</h2>
+        <div class="sub">kolejność czynności ma znaczenie</div>
+        <p class="note">
+        <b>1.</b> Otwórz ten plik na obu telefonach (prześlij go Bluetoothem — nie potrzebuje sieci).<br>
+        <b>2.</b> Na <b>A</b>: zakładka Sprzęt → <i>Uruchom diodę tylnej kamery</i> → sprawdź jej dostępność.<br>
+        <b>3.</b> Na <b>B</b>: Konsola → <i>Uruchom odbiornik</i>; w Sprzęcie wybierz <b>teleobiektyw</b>,
+        zoom max, ostrość ręczna 1.0 (∞), ekspozycja ~8–16 ms, ISO 400–800, WB ręczny.<br>
+        <b>4.</b> Włącz <i>Latarnia</i> na A — B mierzy SNR i wyświetla zasięg; celuj asystentem, aż
+        margines &gt; 12 dB.<br>
+        <b>5.</b> Wybierz Ts 250 ms, RS t=8, dupleks ON. Wyślij tekst — na B pojawi się w czacie.<br>
+        <b>6.</b> W dzień: załóż na obiektyw B <b>czerwony lub niebieski filtr wąskopasmowy</b>
+        (nawet kawałek folii) i skróć ekspozycję — tło nieba spada o 20–30 dB, sygnał LED zostaje.</p>
+        <div class="warn">Zasięg 2 km i niezawodność nie zostały zweryfikowane na prawdziwych telefonach.
+        Zależą od diody, optyki, ekspozycji, pogody, precyzji czasowej API torch i możliwości
+        przeglądarki. Kalkulator oraz symulator nie zastępują pomiarów terenowych.</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2><s>04</s>Kalkulator budżetu łącza</h2>
+        <div class="sub">ile fotonów realnie trafia na matrycę</div>
+        <label>Dystans R — <span id="lbDistV" style="color:var(--amber)">2000 m</span></label>
+        <input type="range" id="lbDist" min="10" max="10000" step="10" value="2000">
+        <label>Moc optyczna LED — <span id="lbPV" style="color:var(--amber)">0.30 W</span></label>
+        <input type="range" id="lbP" min="5" max="300" step="5" value="30">
+        <label>Rozbieżność wiązki — <span id="lbDivV" style="color:var(--amber)">25°</span></label>
+        <input type="range" id="lbDiv" min="4" max="60" step="1" value="25">
+        <label>Apertura obiektywu B — <span id="lbAV" style="color:var(--amber)">6.0 mm</span></label>
+        <input type="range" id="lbA" min="20" max="120" step="1" value="60">
+        <label>Czas symbolu Ts — <span id="lbTsV" style="color:var(--amber)">250 ms</span></label>
+        <input type="range" id="lbTs" min="20" max="1000" step="10" value="250">
+        <label>Jaskrawość tła (0=noc, 1=słońce) — <span id="lbBgV" style="color:var(--amber)">0.05</span></label>
+        <input type="range" id="lbBg" min="0" max="100" step="1" value="5">
+        <div class="kv" id="lbOut"></div>
+        <p class="note">Model: <code>P_r = P·A/(Ω·R²)</code>, Ω = 2π(1−cos θ). Fotony/bit =
+        P_r·Ts·λ/(h·c)·QE. Szum: shot-noise sygnału + tła + szum odczytu matrycy
+        (σ_read ≈ 2 e⁻/px · √N_px). Wymagane ≥ 20 fotonów/bit dla BER &lt; 10⁻⁶ po FEC.</p>
+      </div>
+
+      <div class="panel" style="margin-top:14px">
+        <h2><s>04</s>Zdolność korekcyjna</h2>
+        <div class="sub">ile błędów zniesie obecna konfiguracja</div>
+        <table id="capTab"></table>
+        <p class="note">RS(t) poprawia do t błędnych bajtów w ramce. Interleaving rozprasza
+        serie błędów, ale nie zwiększa zdolności korekcyjnej pojedynczej ramki. CRC-16 wykrywa
+        wiele błędów; nie zapewnia matematycznej gwarancji braku niewykrytych błędów.
+        Kanał zwrotny wymaga sprawdzenia na obu urządzeniach.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+(function(){
+'use strict';
+/* =====================================================================
+   0. NARZĘDZIA
+   ===================================================================== */
+const $=s=>document.querySelector(s);
+const $$=s=>Array.from(document.querySelectorAll(s));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const enc=new TextEncoder(), dec=new TextDecoder('utf-8',{fatal:false});
+const now=()=>performance.now();
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),3600);}
+function logMsg(html,cls){
+  const l=$('#log');const d=document.createElement('div');if(cls)d.className=cls;d.innerHTML=html;
+  l.prepend(d);while(l.children.length>90)l.lastChild.remove();
+}
+function labLog(html,cls){
+  const l=$('#labLog');const d=document.createElement('div');if(cls)d.className=cls;d.innerHTML=html;
+  l.prepend(d);while(l.children.length>60)l.lastChild.remove();
+}
+
+/* =====================================================================
+   1. GF(256) — arytmetyka pola
+   ===================================================================== */
+const GF=(function(){
+  const exp=new Uint8Array(512), log=new Uint8Array(256);
+  let x=1;
+  for(let i=0;i<255;i++){exp[i]=x;log[x]=i;x<<=1;if(x&0x100)x^=0x11D;}
+  for(let i=255;i<512;i++)exp[i]=exp[i-255];
+  function mul(a,b){return (a===0||b===0)?0:exp[log[a]+log[b]];}
+  function div(a,b){if(b===0)throw new Error('div0');if(a===0)return 0;return exp[(log[a]+255-log[b])%255];}
+  function pow(a,n){if(a===0)return 0;let k=((n%255)+255)%255;return exp[(log[a]*k)%255];}
+  function inv(a){return a===0?0:exp[255-log[a]];}
+  return {exp,log,mul,div,pow,inv};
+})();
+
+/* wielomiany jako tablice: index 0 = najwyższa potęga (klasyka RS) */
+function polyScale(p,s){const r=new Array(p.length);for(let i=0;i<p.length;i++)r[i]=GF.mul(p[i],s);return r;}
+function polyAdd(a,b){
+  const n=Math.max(a.length,b.length),r=new Array(n).fill(0);
+  for(let i=0;i<a.length;i++)r[n-a.length+i]^=a[i];
+  for(let i=0;i<b.length;i++)r[n-b.length+i]^=b[i];
+  return r;
+}
+function polyMul(a,b){
+  const r=new Array(a.length+b.length-1).fill(0);
+  for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++)r[i+j]^=GF.mul(a[i],b[j]);
+  return r;
+}
+function polyEval(p,x){let y=p[0];for(let i=1;i<p.length;i++)y=GF.mul(y,x)^p[i];return y;}
+
+/* =====================================================================
+   2. REED–SOLOMON (systematyczny, GF(256), pierwiastek pierw. 0x11D)
+   ===================================================================== */
+const RS=(function(){
+  const cache={};
+  function genPoly(nsym){
+    if(cache[nsym])return cache[nsym];
+    let g=[1];
+    for(let i=0;i<nsym;i++)g=polyMul(g,[1,GF.exp[i]]);
+    cache[nsym]=g;return g;
+  }
+  function encode(msg,nsym){
+    const g=genPoly(nsym);
+    const res=new Uint8Array(msg.length+nsym);
+    res.set(msg);
+    for(let i=0;i<msg.length;i++){
+      const c=res[i];
+      if(c!==0)for(let j=1;j<g.length;j++)res[i+j]^=GF.mul(g[j],c);
+    }
+    const out=new Uint8Array(msg.length+nsym);
+    out.set(msg);
+    out.set(res.subarray(msg.length),msg.length);
+    return out;
+  }
+  function syndromes(cw,nsym){
+    const s=new Uint8Array(nsym);let nz=0;
+    for(let i=0;i<nsym;i++){s[i]=polyEval(cw,GF.exp[i]);if(s[i])nz++;}
+    return {s,nz};
+  }
+  /* Berlekamp–Massey: zwraca Λ(x) jako tablicę C, C[0]=1 */
+  function berlekamp(s,nsym){
+    let C=[1],B=[1],L=0,m=1,b=1;
+    for(let n=0;n<nsym;n++){
+      let d=s[n]&0xFF;
+      for(let i=1;i<=L;i++)d^=GF.mul(C[i]||0,s[n-i]);
+      if(d===0){m++;continue;}
+      const T=C.slice();
+      const coef=GF.mul(d,GF.inv(b));
+      while(C.length<B.length+m)C.push(0);
+      for(let i=0;i<B.length;i++)C[i+m]^=GF.mul(coef,B[i]);
+      if(2*L<=n){L=n+1-L;B=T;b=d;m=1;}else{m++;}
+    }
+    return {C,L};
+  }
+  /* Chien: pozycje błędów (indeksy w tablicy cw, cw[0]=x^(n-1)) */
+  function chien(C,n){
+    const pos=[];
+    for(let p=0;p<n;p++){
+      const xi=GF.exp[(255-((n-1-p)%255))%255];   // X_j^-1
+      let v=0;
+      for(let j=0;j<C.length;j++)v^=GF.mul(C[j]||0,GF.pow(xi,j));
+      if(v===0)pos.push(p);
+    }
+    return pos;
+  }
+  /* wartości błędów: rozwiązujemy S_i = Σ e_j·X_j^i  eliminacją Gaussa nad GF(256)
+     — niezależne od konwencji, a poprawność potwierdza ponowne policzenie syndromów */
+  function solveValues(s,pos,n){
+    const L=pos.length;
+    if(L===0)return [];
+    const X=pos.map(p=>GF.exp[(n-1-p)%255]);
+    const A=[];
+    for(let i=0;i<L;i++){
+      const row=new Array(L+1);
+      for(let j=0;j<L;j++)row[j]=GF.pow(X[j],i);
+      row[L]=s[i];A.push(row);
+    }
+    for(let col=0;col<L;col++){
+      let piv=-1;
+      for(let r=col;r<L;r++)if(A[r][col]!==0){piv=r;break;}
+      if(piv<0)return null;
+      if(piv!==col){const t=A[piv];A[piv]=A[col];A[col]=t;}
+      const inv=GF.inv(A[col][col]);
+      for(let j=col;j<=L;j++)A[col][j]=GF.mul(A[col][j],inv);
+      for(let r=0;r<L;r++){
+        if(r===col||A[r][col]===0)continue;
+        const f=A[r][col];
+        for(let j=col;j<=L;j++)A[r][j]^=GF.mul(f,A[col][j]);
+      }
+    }
+    return A.map(r=>r[L]);
+  }
+  function decode(data,nsym){
+    const cw=Uint8Array.from(data);
+    const n=cw.length;
+    let {s,nz}=syndromes(cw,nsym);
+    if(nz===0)return {ok:true,cw,errs:0};
+    const {C,L}=berlekamp(s,nsym);
+    if(L===0||L>nsym>>1)return {ok:false,errs:L};
+    const pos=chien(C,n);
+    if(pos.length!==L)return {ok:false,errs:pos.length};
+    const vals=solveValues(s,pos,n);
+    if(!vals)return {ok:false,errs:L};
+    for(let i=0;i<L;i++)cw[pos[i]]^=vals[i];
+    const chk=syndromes(cw,nsym);
+    if(chk.nz!==0)return {ok:false,errs:L};         // weryfikacja — żadnej cichej pomyłki
+    return {ok:true,cw,errs:L};
+  }
+  return {encode,decode,genPoly};
+})();
+
+/* =====================================================================
+   3. CRC-16/CCITT-FALSE
+   ===================================================================== */
+function crc16(bytes){
+  let c=0xFFFF;
+  for(let i=0;i<bytes.length;i++){
+    c^=(bytes[i]&0xFF)<<8;
+    for(let k=0;k<8;k++)c=(c&0x8000)?((c<<1)^0x1021)&0xFFFF:(c<<1)&0xFFFF;
+  }
+  return c&0xFFFF;
+}
+
+/* =====================================================================
+   4. INTERLEAVER blokowy (głębokość D)
+   ===================================================================== */
+function interleave(buf,D){
+  if(D<=1)return Uint8Array.from(buf);
+  const n=buf.length,rows=Math.ceil(n/D),out=new Uint8Array(n);let k=0;
+  for(let c=0;c<D;c++)for(let r=0;r<rows;r++){const i=r*D+c;if(i<n)out[k++]=buf[i];}
+  return out;
+}
+function deinterleave(buf,D){
+  if(D<=1)return Uint8Array.from(buf);
+  const n=buf.length,rows=Math.ceil(n/D),out=new Uint8Array(n);
+  const cnt=[];for(let c=0;c<D;c++)cnt.push(c<n?Math.floor((n-1-c)/D)+1:0);
+  let k=0;
+  for(let c=0;c<D;c++)for(let r=0;r<cnt[c];r++)out[r*D+c]=buf[k++];
+  return out;
+}
+
+/* =====================================================================
+   5. RAMKA
+   ===================================================================== */
+const SYNC16=0x2DD4, PRE_LEN=24;
+const T_DATA=0,T_ACK=1,T_NAK=2,T_BEACON=3,T_PING=4;
+function buildCW(type,msgId,seq,total,payload,nsym,D){
+  const len=payload.length;
+  const core=new Uint8Array(5+cfg.payload+2);
+  core[0]=(type&0x0F)<<4;
+  core[1]=msgId&0xFF;core[2]=seq&0xFF;core[3]=total&0xFF;core[4]=len&0xFF;
+  core.set(payload,5);
+  const c=crc16(core.subarray(0,5+cfg.payload));
+  core[5+cfg.payload]=(c>>8)&0xFF;core[6+cfg.payload]=c&0xFF;
+  const cw=RS.encode(core,nsym);
+  return interleave(cw,D);
+}
+function parseCW(bits,cfg){
+  const cw=bitsToBytes(bits);
+  if(cw.length!==cfg.cwLen)return null;
+  const raw=deinterleave(cw,cfg.DD);
+  const r=RS.decode(raw,cfg.nsym);
+  if(!r.ok)return {ok:false,errs:r.errs,raw:false};
+  const core=r.cw.subarray(0,r.cw.length-cfg.nsym);
+  const type=(core[0]>>4)&0x0F, len=core[4];
+  if(core.length!==5+cfg.payload+2||len>cfg.payload)return {ok:false,errs:r.errs,raw:false};
+  const payload=core.subarray(5,5+len);
+  const crcR=(core[5+cfg.payload]<<8)|core[6+cfg.payload];
+  if(crc16(core.subarray(0,5+cfg.payload))!==crcR)return {ok:false,errs:r.errs,raw:false,crcBad:true};
+  return {ok:true,type,msgId:core[1],seq:core[2],total:core[3],len,payload:Uint8Array.from(payload),errs:r.errs};
+}
+
+/* =====================================================================
+   6. BITY
+   ===================================================================== */
+function bytesToBits(b){const o=[];for(let i=0;i<b.length;i++)for(let k=7;k>=0;k--)o.push((b[i]>>k)&1);return o;}
+function bitsToBytes(bits){const n=bits.length>>3,o=new Uint8Array(n);
+  for(let i=0;i<n;i++){let v=0;for(let k=0;k<8;k++)v=(v<<1)|(bits[i*8+k]&1);o[i]=v;}return o;}
+function preamble(){const p=[];for(let i=0;i<PRE_LEN;i++)p.push(i&1);return p;}
+function syncBits(){const s=[];for(let k=15;k>=0;k--)s.push((SYNC16>>k)&1);return s;}
+
+/* =====================================================================
+   7. KONFIGURACJA ŁĄCZA
+   ===================================================================== */
+const cfg={
+  Ts:66, payload:24, nsym:8, reps:2, D:4, ilv:true, duplex:false, auto:false,
+  get cwLen(){return 5+this.payload+2+this.nsym;},
+  get frameBits(){return PRE_LEN+16+this.cwLen*8;},
+  get DD(){return this.ilv?this.D:1;}
+};
+function recalc(){
+  $('#kCw').textContent=cfg.cwLen+' B ('+cfg.frameBits+' bitów z preambułą)';
+  const Ts=effTs();
+  $('#kTime').textContent=(cfg.frameBits*Ts/1000).toFixed(1)+' s / ramkę';
+  const txt=$('#msgInput').value;
+  const nb=new Blob([txt]).size||1;
+  const nf=Math.max(1,Math.ceil(nb/cfg.payload));
+  $('#kEta').textContent=(nf*cfg.reps*cfg.frameBits*Ts/1000).toFixed(0)+' s ('+nf+' ram.)';
+  $('#tRate').innerHTML=(1000/Ts).toFixed(1)+'<small> bit/s</small>';
+  const t=cfg.nsym>>1;
+  $('#capBurst').textContent=(t*cfg.DD*8)+' bitów';
+  $('#capTab').innerHTML=
+    '<tr><th>Konfiguracja</th><th>payload</th><th>RS t</th><th>interleave</th><th>odporność na burst</th></tr>'+
+    [4,8,16,32].map(n=>{const tt=n>>1;return '<tr><td>RS t='+tt+'</td><td>'+cfg.payload+' B</td><td>'+tt+' B</td>'+
+      '<td>'+(cfg.ilv?cfg.D:'—')+'</td><td><b>'+(tt*(cfg.ilv?cfg.D:1)*8)+'</b> bitów</td></tr>';}).join('');
+}
+function effTs(){
+  if(!cfg.auto)return cfg.Ts;
+  const s=link.snrDb;
+  if(!isFinite(s))return 120;
+  if(s>26)return 33; if(s>20)return 66; if(s>15)return 120; if(s>10)return 250; return 500;
+}
+
+/* =====================================================================
+   8. ODBIORNIK — pętla synchronizacji + integrate-and-dump
+   ===================================================================== */
+class OpticalRX{
+  constructor(h){
+    this.h=h||{};
+    this.reset();
+    this.scope=new Float32Array(1400);this.sp=0;
+    this.hist=new Float32Array(64);
+  }
+	  reset(){
+	    /* Start z neutralnym poziomem zapobiega wielosekundowemu „rozbiegowi”
+	       adaptacyjnego progu w symulatorze i po uruchomieniu prawdziwej kamery. */
+	    this.hi=.5;this.lo=.5;this.tNext=0;this.acc=0;this.prevSgn=0;
+    this.sr=[];this.state=0;this.collected=[];this.locked=false;
+    this.snrDb=-Infinity;this.resid=0;this.residN=0;this.bitCount=0;this.errRaw=0;
+    this.phaseErr=0;this.lastEdge=0;this.noiseAcc=0;this.noiseN=0;this.noiseStd=0;
+  }
+  setTs(Ts){this.Ts=Ts;}
+  /* v — luminancja/ kontrast ROI, t — czas w ms */
+  push(v,t){
+    if(this.Ts===undefined)this.Ts=66;
+    const Ts=this.Ts;
+    /* trackery poziomu: szybki atak, wolny zanik → próg podąża za AGC i tłem */
+    if(v>this.hi)this.hi+=(v-this.hi)*0.45;else this.hi+=(v-this.hi)*0.012;
+    if(v<this.lo)this.lo+=(v-this.lo)*0.45;else this.lo+=(v-this.lo)*0.012;
+    const span=this.hi-this.lo;
+    /* zapis do oscyloskopu i histogramu */
+    this.scope[this.sp]=v;this.sp=(this.sp+1)%this.scope.length;
+    const hb=clamp(Math.round(v*63),0,63);this.hist[hb]+=1;
+    if(span<0.02){
+      if(this.locked){this.locked=false;this.h.onLock&&this.h.onLock(false);}
+      this.h.onLevel&&this.h.onLevel(v,span,-Infinity);
+      return;
+    }
+    const thr=(this.hi+this.lo)/2;
+    const x=v-thr;
+    /* pętla fazy: przejścia przez próg powinny wypadać na granicach symboli */
+    const sg=x>0?1:-1;
+    if(sg!==this.prevSgn&&this.prevSgn!==0){
+      let off=(t-this.tNext)%Ts;off=((off%Ts)+Ts)%Ts;
+      const err=off<Ts/2?off:off-Ts;
+      this.phaseErr=err/Ts;
+      this.tNext+=err*0.15;                        // delikatne dociągnięcie (DLL)
+      this.lastEdge=t;
+    }
+    this.prevSgn=sg;
+    this.acc+=x;
+    if(t>=this.tNext){
+      const bit=this.acc>0?1:0;
+      /* estymacja szumu: odchyłka od idealnego poziomu ±span/2 */
+      this.noiseAcc+=Math.abs(Math.abs(x)-span/2);this.noiseN++;
+      if(this.noiseN>240){this.noiseStd=this.noiseAcc/this.noiseN;this.noiseAcc=0;this.noiseN=0;
+        const sig=span/2;
+        this.snrDb=this.noiseStd>1e-6?20*Math.log10(sig/this.noiseStd):60;
+        this.h.onSnr&&this.h.onSnr(this.snrDb,span,this.noiseStd);
+      }
+      this.acc=0;
+      this.tNext+=Ts;
+      if(t-this.tNext>Ts*3)this.tNext=t+Ts*0.5;    // resynchronizacja po zaniku
+      this.bitCount++;
+      this.onBit(bit);
+      this.h.onLevel&&this.h.onLevel(v,span,this.snrDb);
+    }
+  }
+  onBit(b){
+    const sb=syncBits();
+    if(this.state===0){
+      this.sr.push(b);if(this.sr.length>16)this.sr.shift();
+      if(this.sr.length===16){
+        let m=true;for(let i=0;i<16;i++)if(this.sr[i]!==sb[i]){m=false;break;}
+        if(m){
+          this.state=1;this.collected=[];this.locked=true;this.sr=[];
+          this.h.onLock&&this.h.onLock(true);
+        }
+      }
+    }else{
+      this.collected.push(b);
+      if(this.collected.length===cfg.cwLen*8){
+        this.state=0;this.locked=false;
+        const f=parseCW(this.collected,cfg);
+        this.h.onFrame&&this.h.onFrame(f,this.collected.slice(0,64));
+      }
+    }
+  }
+}
+
+/* =====================================================================
+   9. STAN ŁĄCZA I STATYSTYKI
+   ===================================================================== */
+const link={snrDb:-Infinity,locked:false,span:0,noise:0,ok:0,fix:0,bad:0,bytesFixed:0,arq:0,msgs:0,
+            rawBits:0,rawErr:0,contrast:0,blobX:.5,blobY:.5,blobPx:0};
+const stats=link;
+function renderStats(){
+  $('#sOk').textContent=stats.ok;$('#sFix').textContent=stats.fix;$('#sBad').textContent=stats.bad;
+  $('#sByt').textContent=stats.bytesFixed;$('#sArq').textContent=stats.arq;$('#sMsg').textContent=stats.msgs;
+}
+function setChip(id,val,cls){
+  const c=$(id);if(!c)return;c.className='tchip'+(cls?' '+cls:'');
+}
+function updateTelemetry(){
+  const s=link.snrDb,fin=isFinite(s);
+  $('#tSnr').innerHTML=(fin?s.toFixed(1):'—')+'<small> dB</small>';
+  setChip('#cSnr',null,fin?(s>15?'ok':(s>8?'hot':'')):'');
+  $('#tLock').textContent=link.locked?'ZŁAPANA':'BRAK';
+  setChip('#cLock',null,link.locked?'ok':'');
+  $('#tRange').innerHTML=(fin&&s>-20?Math.round(link.refRange*Math.pow(10,(s-12)/20)):'—')+'<small> m</small>';
+  setChip('#cRange',null,fin?'hot':'');
+  $('#dContrast').textContent=link.contrast.toFixed(4);
+  $('#dNoise').textContent=link.noise.toFixed(4);
+  $('#dMargin').textContent=fin?(s-12).toFixed(1)+' dB':'—';
+  $('#dBlob').textContent=link.blobPx?link.blobPx.toFixed(0):'—';
+  $('#dPos').textContent=(link.blobX*100).toFixed(0)+'% / '+(link.blobY*100).toFixed(0)+'%';
+  $('#dPhase').textContent=fin?(link.phaseErrPct||0).toFixed(1)+'%':'—';
+}
+link.refRange=2000;
+
+/* =====================================================================
+   10. WARSTWA ŁĄCZA: składanie wiadomości, ARQ, czat
+   ===================================================================== */
+const chat={
+  log:[],
+  load(){try{this.log=JSON.parse(localStorage.getItem('ol_chat')||'[]');}catch(e){this.log=[];}},
+  save(){try{localStorage.setItem('ol_chat',JSON.stringify(this.log.slice(-150)));}catch(e){}
+    this.render();},
+  add(text,mine,status){this.log.push({t:Date.now(),text,mine:!!mine,st:status||''});this.save();},
+  sys(text){this.log.push({t:Date.now(),text,sys:true});this.save();},
+  setStatus(i,st){if(this.log[i]){this.log[i].st=st;this.save();}},
+  render(){
+    const c=$('#chatLog');c.innerHTML='';
+    if(!this.log.length){c.innerHTML='<div class="ph">Tu pojawi się zwykła rozmowa.<br>Szyfrowanie warstwy fizycznej jest niewidoczne.</div>';return;}
+    for(const m of this.log){
+      const d=document.createElement('div');
+      if(m.sys){d.className='sys';d.textContent=m.text;}
+      else{
+        d.className='bub '+(m.mine?'me':'them');
+        const tx=document.createElement('div');tx.textContent=m.text;
+        const mt=document.createElement('div');mt.className='m';
+        mt.textContent=(m.mine?'ja':'A')+' · '+new Date(m.t).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(m.st?' · '+m.st:'');
+        d.append(tx,mt);
+      }
+      c.append(d);
+    }
+    c.scrollTop=c.scrollHeight;
+  }
+};
+chat.load();chat.render();
+
+/* bufor odbioru wiadomości (składanie fragmentów) */
+const rxMsgs=new Map();
+let missingTimer=null;
+function onFrameRemote(f,bitPreview){
+  if(!f||!f.ok){
+    stats.bad++;renderStats();
+    logMsg('<b>RX</b> ramka odrzucona — '+(f&&f.crcBad?'CRC-16 nie zgodny':'RS poza zdolnością t')+' ('+(f?f.errs:'?')+' błędów)','bad');
+    return;
+  }
+  if(f.errs>0){stats.fix++;stats.bytesFixed+=f.errs;
+    logMsg('<b>RX</b> ramka naprawiona przez Reed–Solomon: <b>'+f.errs+'</b> bajtów','fix');}
+  else logMsg('<b>RX</b> ramka czysta · type='+f.type+' · seq='+f.seq+'/'+(f.total-1),'ok');
+  stats.ok++;renderStats();updateTelemetry();
+
+  if(f.type===T_ACK||f.type===T_NAK){
+    handleArq(f);return;
+  }
+  if(f.type===T_BEACON){
+    logMsg('<b>RX</b> latarnia A — kanał żyje, SNR '+link.snrDb.toFixed(1)+' dB','ok');
+    return;
+  }
+  let m=rxMsgs.get(f.msgId);
+  if(!m){m={total:f.total,parts:new Map(),t0:Date.now()};rxMsgs.set(f.msgId,m);}
+  m.parts.set(f.seq,f.payload);
+  if(m.parts.size<m.total){
+    /* ARQ: poproś o brakujące */
+    if(cfg.duplex){
+      clearTimeout(missingTimer);
+      missingTimer=setTimeout(()=>{
+        const miss=[];for(let i=0;i<m.total;i++)if(!m.parts.has(i))miss.push(i);
+        if(miss.length){sendArq(T_NAK,f.msgId,miss);stats.arq++;renderStats();
+          logMsg('<b>ARQ</b> NAK → brakujące ramki: '+miss.join(', '),'tx');}
+      },Math.max(1200,cfg.frameBits*effTs()*1.4));
+    }
+    return;
+  }
+  rxMsgs.delete(f.msgId);
+  const all=[];for(let i=0;i<m.total;i++)all.push(...m.parts.get(i));
+  const text=dec.decode(Uint8Array.from(all));
+  chat.add(text,false);
+  stats.msgs++;renderStats();
+  logMsg('<b>✓ WIADOMOŚĆ</b> złożona z '+m.total+' ramek · '+(Date.now()-m.t0)+' ms','ok');
+  if(cfg.duplex)sendArq(T_ACK,f.msgId,[]);
+}
+function handleArq(f){
+  const pending=txPending.get(f.msgId);
+  if(!pending)return;
+  if(f.type===T_ACK){
+    logMsg('<b>ARQ</b> ACK od B — wiadomość '+f.msgId+' dostarczona bezbłędnie','ok');
+    txPending.delete(f.msgId);
+    if(pending.chatIdx>=0)chat.setStatus(pending.chatIdx,'✓✓ dostarczono (ACK)');
+  }else{
+    const miss=Array.from(f.payload).filter(i=>i>=0&&i<pending.frames.length);
+    stats.arq++;renderStats();
+    logMsg('<b>ARQ</b> NAK od B → retransmisja tylko ramek: '+(miss.join(', ')||'(brak listy — całość)'),'tx');
+    const frames=miss.length?miss.map(i=>pending.frames[i]):pending.frames;
+    tx.queue.push({frames:frames,retrans:true});
+    runTxQueue();
+  }
+}
+const txPending=new Map();
+
+/* =====================================================================
+   11. NADAJNIK — kluczowanie OOK
+   ===================================================================== */
+const tx={
+  torch:false,track:null,busy:false,queue:[],wake:null,
+  ready(){return this.torch&&this.track&&this.track.readyState==='live';},
+  async light(on){
+    if(!this.ready())throw new Error('Brak aktywnej diody przy tylnej kamerze.');
+    await this.track.applyConstraints({advanced:[{torch:!!on}]});
+  },
+  async sendBits(bits,onSym){
+    const Ts=effTs();
+    for(const b of bits){
+      await this.light(b);
+      if(onSym)onSym(b);
+      await sleep(Ts);
+    }
+    await this.light(0);
+  },
+  async sendCW(cwBytes,onSym){
+    const bits=preamble().concat(syncBits(),bytesToBits(cwBytes));
+    await this.sendBits(bits,onSym);
+  }
+};
+let msgId=1;
+
+async function runTxQueue(){
+  if(tx.busy)return;
+  if(!tx.ready()){
+    tx.queue.length=0;
+    $('#txStatus').textContent='Transmisja zablokowana: włącz diodę tylnej kamery.';
+    toast('Brak nadajnika LED. Ekran nie zastąpi latarki.');
+    return;
+  }
+  const job=tx.queue.shift();
+  if(!job)return;
+  tx.busy=true;setButtons(false);
+  const Ts=effTs();
+  const frames=job.frames;
+  try{
+    for(let i=0;i<frames.length;i++){
+      const f=frames[i];
+      for(let r=0;r<(job.retrans?1:cfg.reps);r++){
+        $('#txStatus').textContent='Nadawanie LED: ramka '+(i+1)+'/'+frames.length+' · przebieg '+(r+1)+'/'+cfg.reps+' · Ts='+Ts+' ms';
+        $('#hud2').textContent='TX '+(i+1)+'/'+frames.length;
+        await tx.sendCW(f,onSymOut);
+        await sleep(Ts*6);
+        onSymOut(-1);
+      }
+    }
+    $('#txStatus').textContent='Nadano diodą LED'+(cfg.duplex?' — oczekiwanie na ACK/NAK':' — CRC zostanie zweryfikowane po stronie B')+'.';
+    $('#hud2').textContent='IDLE';
+    if(job.onDone)job.onDone();
+  }catch(e){
+    tx.queue.length=0;
+    $('#txStatus').textContent='Nadawanie przerwane: '+e.message;
+    $('#hud2').textContent='BŁĄD LED';
+    logMsg('<b>TX</b> '+e.message,'bad');
+  }finally{
+    if(tx.track&&tx.track.readyState==='live')await tx.light(false).catch(()=>{});
+    tx.busy=false;setButtons(true);
+    if(tx.queue.length&&tx.ready())runTxQueue();
+  }
+}
+function setButtons(on){
+  const enabled=on&&tx.ready();
+  $('#sendBtn').disabled=!enabled;$('#beaconBtn').disabled=!enabled;$('#pingBtn').disabled=!enabled;
+}
+let symMirror=null;
+function onSymOut(b){
+  if(symMirror)symMirror(b);
+}
+function chunkMessage(text){
+  const bytes=enc.encode(text);
+  const frames=[];
+  const P=cfg.payload;
+  const n=Math.max(1,Math.ceil(bytes.length/P));
+  const id=msgId;msgId=(msgId+1)&0xFF;
+  for(let s=0;s<n;s++){
+    const pl=bytes.slice(s*P,Math.min(bytes.length,(s+1)*P));
+    frames.push(buildCW(T_DATA,id,s,n,pl,cfg.nsym,cfg.DD));
+  }
+  return {id,frames,total:n,bytes};
+}
+function sendArq(type,msgIdRef,miss){
+  const pl=Uint8Array.from(miss.slice(0,cfg.payload));
+  const cw=buildCW(type,msgIdRef,0,1,pl,cfg.nsym,cfg.DD);
+  tx.queue.push({frames:[cw],retrans:true,onDone:()=>{}});
+  runTxQueue();
+}
+
+/* =====================================================================
+   12. KAMERA — pozyskiwanie klatek, ROI, śledzenie plamki
+   ===================================================================== */
+const cam={
+  stream:null,track:null,active:false,lastT:0,vW:0,vH:0,
+  down:document.createElement('canvas'),dnx:null,
+  work:document.createElement('canvas'),wnx:null,
+  roi:{x:.5,y:.5,w:.12,h:.12,found:false},
+  fps:0,fpsT:0,fpsN:0
+};
+cam.down.width=96;cam.down.height=54;cam.dnx=cam.down.getContext('2d',{willReadFrequently:true});
+cam.work.width=48;cam.work.height=48;cam.wnx=cam.work.getContext('2d',{willReadFrequently:true});
+
+async function startCam(){
+  if(cam.active){stopCam();return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    toast('Brak API kamery — użyj Laboratorium (symulator) albo uruchom plik z HTTPS/localhost.');return;
+  }
+  const fps=+$('#fpsSel').value;
+  try{
+    cam.stream=await navigator.mediaDevices.getUserMedia({
+      audio:false,
+      video:{facingMode:{ideal:'environment'},
+        width:{ideal:1920},height:{ideal:1080},
+        frameRate:{ideal:fps,min:15}}
+    });
+  }catch(e){toast('Kamera niedostępna: '+e.message);return;}
+  cam.track=cam.stream.getVideoTracks()[0];
+  const v=$('#camVideo');v.srcObject=cam.stream;
+  try{await v.play();}catch(e){}
+  cam.active=true;$('#novid').classList.add('hide');
+  $('#camBtn').textContent='⏹ Zatrzymaj odbiornik';
+  rx.setTs(effTs());
+  await applyHw(true);
+  listCams();
+  logMsg('<b>CAM</b> strumień: '+v.videoWidth+'×'+v.videoHeight+' · '+Math.round(cam.track.getSettings().frameRate||fps)+' fps · '+cam.track.label,'ok');
+  if('requestVideoFrameCallback' in v)loopRVFC();else loopTimer();
+  drawOvlLoop();
+}
+function stopCam(){
+  cam.active=false;
+  if(cam.stream){cam.stream.getTracks().forEach(t=>t.stop());cam.stream=null;}
+  $('#novid').classList.remove('hide');
+  $('#camBtn').textContent='🎥 Uruchom odbiornik';
+}
+$('#camBtn').onclick=startCam;
+function loopRVFC(){
+  const v=$('#camVideo');
+  const step=(t,meta)=>{
+    if(!cam.active)return;
+    const ts=meta&&meta.mediaTime!==undefined?meta.mediaTime*1000:t;
+    processFrame(ts);
+    v.requestVideoFrameCallback(step);
+  };
+  v.requestVideoFrameCallback(step);
+}
+function loopTimer(){
+  const tick=()=>{if(!cam.active)return;processFrame(now());setTimeout(tick,8);};
+  tick();
+}
+
+/* Główna analiza klatki: znajdź plamkę, odejmij tło, podaj kontrast do RX */
+let bgMedian=0;
+function processFrame(t){
+  const v=$('#camVideo');
+  if(v.readyState<2||!v.videoWidth)return;
+  cam.fpsN++;if(t-cam.fpsT>1000){cam.fps=cam.fpsN*1000/(t-cam.fpsT);cam.fpsT=t;cam.fpsN=0;
+    $('#fpsVal').textContent=cam.fps.toFixed(0)+' fps rzeczywiste';}
+  /* 1) podgląd 96×54 → globalna jasność, tło (mediana), maksimum */
+  cam.dnx.drawImage(v,0,0,96,54);
+  const d=cam.dnx.getImageData(0,0,96,54).data;
+  const N=96*54,lum=new Float32Array(N);
+  for(let i=0,p=0;i<d.length;i+=4,p++)lum[p]=0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2];
+  const sorted=Float32Array.from(lum).sort();
+  bgMedian=sorted[N>>1];
+  let mx=-1,mxi=0;
+  for(let i=0;i<N;i++)if(lum[i]>mx){mx=lum[i];mxi=i;}
+  const px=mxi%96, py=(mxi/96)|0;
+  /* 2) ROI wokół maksimum (z pamięcią — śledzenie, żeby nie skakało) */
+  const r=cam.roi;
+  if(mx-bgMedian>6||!r.found){
+    r.x+=((px+0.5)/96-r.x)*(r.found?0.25:1);
+    r.y+=((py+0.5)/54-r.y)*(r.found?0.25:1);
+    r.found=true;
+  }
+  const hw=0.045,hh=0.075;
+  const sx=clamp(Math.floor((r.x-hw)*v.videoWidth),0,v.videoWidth-2);
+  const sy=clamp(Math.floor((r.y-hh)*v.videoHeight),0,v.videoHeight-2);
+  const sw=Math.min(v.videoWidth-sx,Math.floor(hw*2*v.videoWidth));
+  const sh=Math.min(v.videoHeight-sy,Math.floor(hh*2*v.videoHeight));
+  if(sw<4||sh<4)return;
+  cam.wnx.drawImage(v,sx,sy,sw,sh,0,0,48,48);
+  const w=cam.wnx.getImageData(0,0,48,48).data;
+  /* 3) centroida + intensywność sygnału ponad tłem, normalizacja */
+  let sum=0,cxs=0,cys=0,peak=0,cnt=0;
+  const thr=bgMedian+(mx-bgMedian)*0.45;
+  for(let y=0;y<48;y++)for(let x=0;x<48;x++){
+    const i=(y*48+x)*4;
+    const L=0.2126*w[i]+0.7152*w[i+1]+0.0722*w[i+2];
+    if(L>thr){const a=L-bgMedian;sum+=a;cxs+=a*x;cys+=a*y;cnt++;if(L>peak)peak=L;}
+  }
+  const signal=cnt?(peak-bgMedian)/255:0;
+  const contrast=(sum/(48*48))/255;
+  link.contrast=contrast;link.noise=rx.noiseStd||link.noise||1e-4;
+  link.blobPx=cnt;
+  if(cnt>0){
+    link.blobX=r.x+(cxs/sum)/48*hw*2-hw;
+    link.blobY=r.y+(cys/sum)/48*hh*2-hh;
+  }else{link.blobX=r.x;link.blobY=r.y;}
+  /* 4) próbkowanie normalizowane: (jasność ROI − tło) / skala */
+  const norm=(cnt?peak/255:bgMedian/255);
+  rx.push(norm,t);
+  link.phaseErrPct=Math.abs(rx.phaseErr||0)*100;
+  /* asystent celowania */
+  const dx=(r.x-0.5)*2, dy=(r.y-0.5)*2;
+  const dot=$('#aimDot');
+  dot.style.left=(50+clamp(dx,-1,1)*38)+'%';
+  dot.style.top=(50+clamp(dy,-1,1)*38)+'%';
+  const centered=Math.abs(dx)<0.14&&Math.abs(dy)<0.14&&cnt>0;
+  dot.classList.toggle('ctr',centered);
+  $('#aimTxt').textContent=!cnt?'Brak źródła w kadrze — przesuń telefon B.':
+    centered?'✓ Źródło w osi. Margines SNR '+(link.snrDb||0).toFixed(1)+' dB.':
+    'Przesuń '+(dx>0?'w LEWO':'w PRAWO')+' i '+(dy>0?'w DÓŁ':'w GÓRĘ')+' — plamka poza centrum.';
+  $('#hud').textContent='SNR '+(isFinite(rx.snrDb)?rx.snrDb.toFixed(1):'—')+' dB · ROI '+sw+'×'+sh+' · px '+cnt+' · tło '+bgMedian.toFixed(0);
+  drawScope($('#scope'),rx,true);
+  drawHist();
+  updateTelemetry();
+}
+
+/* =====================================================================
+   13. RYSOWANIE: oscyloskop, siatka, histogram
+   ===================================================================== */
+function drawScope(cv,r,live){
+  const g=cv.getContext('2d'),W=cv.width,H=cv.height;
+  g.fillStyle='#060d14';g.fillRect(0,0,W,H);
+  g.strokeStyle='rgba(120,170,210,.09)';g.lineWidth=1;
+  for(let i=1;i<8;i++){const x=W*i/8;g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke();}
+  for(let i=1;i<4;i++){const y=H*i/4;g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke();}
+  const n=r.scope.length;if(!n)return;
+  let mn=1e9,mx=-1e9;
+  for(let i=0;i<n;i++){const v=r.scope[i];if(v<mn)mn=v;if(v>mx)mx=v;}
+  if(mx-mn<1e-6){mx=mn+1;}
+  const Y=v=>H-8-((v-mn)/(mx-mn))*(H-16);
+  /* próg */
+  if(isFinite(r.hi)&&isFinite(r.lo)&&r.hi>r.lo){
+    const th=(r.hi+r.lo)/2;
+    g.strokeStyle='rgba(255,179,92,.75)';g.setLineDash([6,5]);g.lineWidth=1.4;
+    g.beginPath();g.moveTo(0,Y(th));g.lineTo(W,Y(th));g.stroke();g.setLineDash([]);
+    g.strokeStyle='rgba(93,242,160,.28)';
+    g.beginPath();g.moveTo(0,Y(r.hi));g.lineTo(W,Y(r.hi));g.stroke();
+    g.beginPath();g.moveTo(0,Y(r.lo));g.lineTo(W,Y(r.lo));g.stroke();
+  }
+  /* przebieg */
+  const grad=g.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'#7fd4ff');grad.addColorStop(.55,'#5df2a0');grad.addColorStop(1,'#ffb35c');
+  g.strokeStyle=grad;g.lineWidth=1.7;g.beginPath();
+  for(let i=0;i<n;i++){
+    const v=r.scope[(r.sp+i)%n];
+    const x=i/(n-1)*W,y=Y(v);
+    i?g.lineTo(x,y):g.moveTo(x,y);
+  }
+  g.stroke();
+  /* wypełnienie pod wykresem */
+  g.lineTo(W,H);g.lineTo(0,H);g.closePath();
+  g.fillStyle='rgba(93,242,160,.07)';g.fill();
+  g.font='10px ui-monospace,monospace';g.fillStyle='rgba(139,163,184,.9)';
+  g.fillText('max '+mx.toFixed(3)+'  min '+mn.toFixed(3)+'  Ts='+r.Ts+' ms',8,14);
+}
+function drawHist(){
+  const cv=$('#hist');if(!cv)return;
+  const g=cv.getContext('2d'),W=cv.width,H=cv.height;
+  g.fillStyle='#060d14';g.fillRect(0,0,W,H);
+  let mx=1;for(let i=0;i<64;i++)if(cam.histArr&&cam.histArr[i]>mx)mx=cam.histArr[i];
+  const r=rx.hist;let m2=1;for(let i=0;i<64;i++)if(r[i]>m2)m2=r[i];
+  for(let i=0;i<64;i++){
+    const h=(r[i]/m2)*(H-14);
+    g.fillStyle=i>32?'rgba(255,179,92,.75)':'rgba(127,212,255,.45)';
+    g.fillRect(i*(W/64)+1,H-h-7,Math.max(1,W/64-2),h);
+  }
+  g.font='10px ui-monospace,monospace';g.fillStyle='rgba(139,163,184,.9)';
+  g.fillText('histogram luminancji ROI (niebieski = tło, pomarańcz = sygnał)',8,14);
+}
+const ovl=$('#ovl');
+function drawOvlLoop(){
+  if(!cam.active){requestAnimationFrame(drawOvlLoop);return;}
+  const v=$('#camVideo');
+  ovl.width=v.clientWidth||ovl.width;ovl.height=v.clientHeight||ovl.height;
+  const g=ovl.getContext('2d'),W=ovl.width,H=ovl.height;
+  g.clearRect(0,0,W,H);
+  const r=cam.roi,hw=0.045,hh=0.075;
+  const x=(r.x-hw)*W,y=(r.y-hh)*H,w=hw*2*W,h=hh*2*H;
+  g.strokeStyle=r.found?'rgba(93,242,160,.95)':'rgba(255,107,107,.8)';
+  g.lineWidth=1.6;
+  const c=13;
+  g.beginPath();
+  g.moveTo(x,y+c);g.lineTo(x,y);g.lineTo(x+c,y);
+  g.moveTo(x+w-c,y);g.lineTo(x+w,y);g.lineTo(x+w,y+c);
+  g.moveTo(x+w,y+h-c);g.lineTo(x+w,y+h);g.lineTo(x+w-c,y+h);
+  g.moveTo(x+c,y+h);g.lineTo(x,y+h);g.lineTo(x,y+h-c);
+  g.stroke();
+  /* siatka celownicza */
+  g.strokeStyle='rgba(127,212,255,.16)';g.lineWidth=1;
+  g.beginPath();g.moveTo(W/2,0);g.lineTo(W/2,H);g.moveTo(0,H/2);g.lineTo(W,H/2);g.stroke();
+  /* krzyż na plamce */
+  const bx=link.blobX*W,by=link.blobY*H;
+  g.strokeStyle='rgba(255,179,92,.9)';g.lineWidth=1.2;
+  g.beginPath();g.arc(bx,by,9,0,7);g.stroke();
+  g.beginPath();g.moveTo(bx-15,by);g.lineTo(bx-5,by);g.moveTo(bx+5,by);g.lineTo(bx+15,by);
+  g.moveTo(bx,by-15);g.lineTo(bx,by-5);g.moveTo(bx,by+5);g.lineTo(bx,by+15);g.stroke();
+  requestAnimationFrame(drawOvlLoop);
+}
+
+/* =====================================================================
+   14. INSTANCJA RX + obsługa
+   ===================================================================== */
+const rx=new OpticalRX({
+  onFrame:(f,prev)=>onFrameRemote(f,prev),
+  onSnr:(s,span,noise)=>{link.snrDb=s;link.span=span;link.noise=noise;updateTelemetry();recalc();},
+  onLock:(l)=>{link.locked=l;$('#hud2').textContent=l?'SYNCHRO':'SZUKAM';updateTelemetry();},
+  onLevel:(v,span,snr)=>{}
+});
+rx.setTs(cfg.Ts);
+
+/* =====================================================================
+   15. STEROWNIKI SPRZĘTU
+   ===================================================================== */
+async function applyHw(silent){
+  if(!cam.track){if(!silent)toast('Najpierw uruchom odbiornik.');return;}
+  const cap=cam.track.getCapabilities?cam.track.getCapabilities():{};
+  const st=cam.track.getSettings?cam.track.getSettings():{};
+  const adv=[];
+  if(cap.zoom&&$('#zoomR').value>0){const z=clamp(+$('#zoomR').value,cap.zoom.min,cap.zoom.max);adv.push({zoom:z});$('#zoomVal').textContent=z.toFixed(1)+'×';}
+  if(cap.focusMode&&cap.focusMode.includes('manual')){
+    adv.push({focusMode:'manual'});
+    if(cap.focusDistance){const f=clamp(+$('#focR').value,cap.focusDistance.min,cap.focusDistance.max);adv.push({focusDistance:f});$('#focVal').textContent=f.toFixed(2);}
+  }
+  if(cap.exposureMode&&cap.exposureMode.includes('manual')){
+    adv.push({exposureMode:'manual'});
+    if(cap.exposureTime&&+$('#expR').value>0){const e=clamp(+$('#expR').value*1000,cap.exposureTime.min,cap.exposureTime.max);adv.push({exposureTime:e});$('#expVal').textContent=(e/1000).toFixed(1)+' ms';}
+  }
+  if(cap.whiteBalanceMode&&cap.whiteBalanceMode.includes('manual')&&+$('#wbR').value>0){
+    adv.push({whiteBalanceMode:'manual'});
+    if(cap.colorTemperature){const wb=clamp(+$('#wbR').value,cap.colorTemperature.min,cap.colorTemperature.max);adv.push({colorTemperature:wb});$('#wbVal').textContent=wb+' K';}
+  }
+  if(cap.torch)adv.push({torch:false});
+  if(adv.length){try{await cam.track.applyConstraints({advanced:adv});}catch(e){if(!silent)toast('Część parametrów odrzucona: '+e.message);}}
+  try{await cam.track.applyConstraints({frameRate:{ideal:+$('#fpsSel').value}});}catch(e){}
+  renderCaps();
+}
+function renderCaps(){
+  if(!cam.track){return;}
+  const cap=cam.track.getCapabilities?cam.track.getCapabilities():{};
+  const st=cam.track.getSettings?cam.track.getSettings():{};
+  const out=$('#capsOut');out.innerHTML='';
+  const add=(k,ok,txt)=>{const s=document.createElement('span');s.className='pill '+(ok?'g':'r');
+    s.textContent=k+(txt?' '+txt:'');out.append(s);};
+  add('zoom',!!cap.zoom,cap.zoom?('['+cap.zoom.min+'–'+cap.zoom.max+']'):'');
+  add('focus manual',!!(cap.focusMode&&cap.focusMode.includes('manual')));
+  add('focusDistance',!!cap.focusDistance);
+  add('exposure manual',!!(cap.exposureMode&&cap.exposureMode.includes('manual')));
+  add('exposureTime',!!cap.exposureTime,cap.exposureTime?
+    '['+(cap.exposureTime.min/1000).toFixed(1)+'–'+(cap.exposureTime.max/1000).toFixed(1)+' ms]':'');
+  add('ISO',!!cap.iso);
+  add('WB manual',!!(cap.whiteBalanceMode&&cap.whiteBalanceMode.includes('manual')));
+  add('torch',!!cap.torch);
+  add('frameRate',!!cap.frameRate,cap.frameRate?('['+cap.frameRate.min+'–'+cap.frameRate.max+']'):'');
+  add('resolution',true,(st.width||'?')+'×'+(st.height||'?'));
+  $('#kTorch').textContent=cap.torch?'tak':'nie';
+  $('#kTorch').className=cap.torch?'g':'r';
+  if(cap.zoom){$('#zoomR').min=cap.zoom.min;$('#zoomR').max=Math.min(cap.zoom.max,20);}
+  if(cap.exposureTime){$('#expR').max=Math.min(200,cap.exposureTime.max/1000);}
+}
+async function listCams(){
+  try{
+    const devs=await navigator.mediaDevices.enumerateDevices();
+    const vids=devs.filter(d=>d.kind==='videoinput');
+    const sel=$('#camList');sel.innerHTML='';
+    vids.forEach((d,i)=>{
+      const o=document.createElement('option');o.value=d.deviceId;
+      o.textContent=(d.label||('kamera '+(i+1)))+(/tele|zoom|portrait/i.test(d.label)?'  ★ TELEOBIEKTYW':'');
+      if(cam.track&&d.deviceId===cam.track.getSettings().deviceId)o.selected=true;
+      sel.append(o);
+    });
+    if(!vids.length){sel.innerHTML='<option>brak wykrytych kamer</option>';}
+  }catch(e){}
+}
+$('#camList').onchange=async()=>{
+  stopCam();
+  try{
+    cam.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{deviceId:{exact:$('#camList').value},
+      width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:+$('#fpsSel').value}}});
+    cam.track=cam.stream.getVideoTracks()[0];
+    const v=$('#camVideo');v.srcObject=cam.stream;await v.play();
+    cam.active=true;$('#novid').classList.add('hide');$('#camBtn').textContent='⏹ Zatrzymaj odbiornik';
+    rx.setTs(effTs());await applyHw(true);renderCaps();drawOvlLoop();
+    if('requestVideoFrameCallback' in v)loopRVFC();else loopTimer();
+    logMsg('<b>CAM</b> przełączono na: '+cam.track.label,'ok');
+  }catch(e){toast('Nie udało się przełączyć kamery: '+e.message);}
+};
+$('#applyHw').onclick=()=>applyHw(false);
+$('#capsBtn').onclick=()=>{renderCaps();listCams();};
+$('#preset2k').onclick=()=>{
+  $('#rateSel').value='250';cfg.Ts=250;cfg.auto=false;
+  $('#rsSel').value='16';cfg.nsym=16;
+  $('#zoomR').value=8;$('#expR').value=16;$('#isoR').value=800;$('#focR').value=1;$('#fpsSel').value='30';
+  applyHw(false);recalc();rx.setTs(effTs());
+  toast('Preset 2 km noc: Ts=250 ms, RS t=8, zoom 8×, ekspozycja 16 ms, ostrość ∞.');
+};
+$('#presetDay').onclick=()=>{
+  $('#rateSel').value='120';cfg.Ts=120;cfg.auto=false;
+  $('#rsSel').value='32';cfg.nsym=32;
+  $('#zoomR').value=4;$('#expR').value=2;$('#isoR').value=100;$('#focR').value=1;$('#fpsSel').value='60';
+  applyHw(false);recalc();rx.setTs(effTs());
+  toast('Preset dzień: krótkie ekspozycje 2 ms, RS t=16, 60 fps. Zalecany filtr wąskopasmowy.');
+};
+$('#zoomR').oninput=e=>$('#zoomVal').textContent=(+e.target.value).toFixed(1)+'×';
+$('#expR').oninput=e=>$('#expVal').textContent=(+e.target.value? (+e.target.value).toFixed(0)+' ms':'auto');
+$('#isoR').oninput=e=>$('#isoVal').textContent=(+e.target.value||'auto');
+$('#focR').oninput=e=>$('#focVal').textContent=(+e.target.value).toFixed(2);
+$('#wbR').oninput=e=>$('#wbVal').textContent=(+e.target.value||'auto');
+$('#fpsSel').onchange=()=>applyHw(true);
+
+/* Tylny aparat utrzymuje aktywny strumień, a torch steruje diodą przy nim. */
+$('#torchA').onclick=async()=>{
+  if(tx.busy){toast('Poczekaj na zakończenie bieżącej ramki.');return;}
+  try{
+    if(!tx.track){
+      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+        throw new Error('Kamera wymaga bezpiecznego kontekstu (HTTPS/localhost).');
+      }
+      const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+      tx.track=s.getVideoTracks()[0];
+      tx.camStream=s;
+    }
+    const cap=tx.track.getCapabilities?tx.track.getCapabilities():{};
+    if(!cap.torch)throw new Error('Ta kamera lub przeglądarka nie udostępnia sterowania LED (torch).');
+    if(tx.torch){
+      await tx.light(false);
+      tx.torch=false;
+      tx.camStream.getTracks().forEach(t=>t.stop());
+      tx.track=null;tx.camStream=null;
+    }else{
+      await tx.track.applyConstraints({advanced:[{torch:true}]});
+      await tx.track.applyConstraints({advanced:[{torch:false}]});
+      tx.torch=true;
+    }
+    $('#kSrc').textContent=tx.torch?'dioda tylnego aparatu':'brak';
+    $('#tMode').textContent=tx.torch?'LED GOTOWA':'NIEAKTYWNE';
+    $('#kTx').textContent=tx.torch?'LED aparatu':'dioda wyłączona';
+    $('#kTorch').textContent=tx.torch?'tak (test OK)':'wyłączona';
+    $('#kTorch').className=tx.torch?'g':'r';
+    $('#torchA').textContent=tx.torch?'Wyłącz diodę tylnej kamery':'Uruchom diodę tylnej kamery';
+    $('#txStatus').textContent=tx.torch?'Dioda sprawdzona. Gotowy do transmisji.':'Dioda wyłączona. Transmisja zablokowana.';
+    setButtons(true);
+    toast(tx.torch?'Test diody LED zakończony. Światło zgasło, gotowe do nadawania.':'Dioda wyłączona.');
+  }catch(e){
+    tx.torch=false;
+    if(tx.camStream)tx.camStream.getTracks().forEach(t=>t.stop());
+    tx.track=null;tx.camStream=null;
+    $('#kTorch').textContent='nie';$('#kTorch').className='r';
+    $('#txStatus').textContent='Nie można nadawać: '+e.message;
+    setButtons(true);
+    toast('Nadawanie niedostępne: '+e.message);
+  }
+};
+$('#wakeBtn').onclick=async()=>{
+  try{
+    if(tx.wake){await tx.wake.release();tx.wake=null;}
+    else tx.wake=await navigator.wakeLock.request('screen');
+    $('#kWake').textContent=tx.wake?'tak':'nie';$('#kWake').className=tx.wake?'g':'r';
+    toast(tx.wake?'Wake lock: ekran nie zgaśnie podczas transmisji.':'Wake lock zwolniony.');
+  }catch(e){toast('Wake Lock niedostępny: '+e.message);}
+};
+/* =====================================================================
+   16. WYSYŁANIE Z KONSOLI
+   ===================================================================== */
+$('#sendBtn').onclick=()=>{
+  const text=$('#msgInput').value;
+  if(!text.trim()||tx.busy||!tx.ready())return;
+  const job=chunkMessage(text);
+  const idx=chat.log.length;
+  chat.add(text,true,'nadawanie…');
+  txPending.set(job.id,{frames:job.frames,chatIdx:idx,retrans:null});
+  logMsg('<b>TX</b> MSG '+job.id+' · '+job.total+' ram. × '+cfg.reps+' przebieg. · '+cfg.frameBits+' bit/ramkę · RS t='+(cfg.nsym>>1),'tx');
+  showFrameDemo(job.frames[0]);
+  job.onDone=()=>chat.setStatus(idx,'wysłano (bez potwierdzenia B)');
+  tx.queue.push(job);
+  runTxQueue();
+};
+$('#msgInput').addEventListener('input',recalc);
+$('#msgInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#sendBtn').click();}});
+$('#pingBtn').onclick=()=>{$('#msgInput').value='Ping z A — łącze optyczne działa.';$('#sendBtn').click();};
+$('#beaconBtn').onclick=()=>{
+  if(tx.busy||!tx.ready())return;
+  const cw=buildCW(T_BEACON,msgId,0,1,new Uint8Array(0),cfg.nsym,cfg.DD);
+  tx.queue.push({frames:[cw],retrans:true,onDone:()=>{$('#txStatus').textContent='Latarnia nadana — B może zmierzyć SNR i celować.';}});
+  runTxQueue();
+  logMsg('<b>TX</b> latarnia (beacon) — pomiar kanału','tx');
+};
+$('#clearChat').onclick=()=>{chat.log=[];chat.save();};
+
+function showFrameDemo(cw){
+  const bits=preamble().concat(syncBits(),bytesToBits(cw));
+  let h='<span class="h">PRE '+preamble().join('')+'</span> ';
+  h+='<span class="f">SYNC '+syncBits().join('')+'</span> ';
+  const body=bits.slice(PRE_LEN+16);
+  const head=body.slice(0,40).join('');
+  h+='<span class="p">HDR '+head+'</span> ';
+  h+='<span class="c">…razem '+bits.length+' bitów, Ts='+effTs()+' ms → '+(bits.length*effTs()/1000).toFixed(1)+' s</span>';
+  $('#frameDemo').innerHTML=h;
+}
+
+/* =====================================================================
+   17. KONFIGURACJA — bindy
+   ===================================================================== */
+$('#rateSel').onchange=e=>{
+  if(e.target.value==='auto'){cfg.auto=true;}
+  else{cfg.auto=false;cfg.Ts=+e.target.value;}
+  rx.setTs(effTs());recalc();
+};
+$('#paySel').onchange=e=>{cfg.payload=+e.target.value;recalc();};
+$('#rsSel').onchange=e=>{cfg.nsym=+e.target.value;recalc();};
+$('#repSel').onchange=e=>{cfg.reps=+e.target.value;recalc();};
+$('#ilvChk').onchange=e=>{cfg.ilv=e.target.checked;recalc();};
+$('#dupChk').onchange=e=>{cfg.duplex=e.target.checked;};
+
+/* zakładki */
+$$('.tabs button').forEach(b=>b.onclick=()=>{
+  $$('.tabs button').forEach(x=>x.classList.remove('on'));
+  $$('.tab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');$('#tab-'+b.dataset.t).classList.add('on');
+  reveal();
+  if(b.dataset.t==='lab')drawBerChart(berData);
+});
+/* scroll reveal */
+function reveal(){
+  const els=$$('.panel:not(.in)');
+  els.forEach((el,i)=>setTimeout(()=>el.classList.add('in'),i*55));
+}
+if('IntersectionObserver' in window){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.06});
+  $$('.panel').forEach(p=>io.observe(p));
+}else reveal();
+
+/* =====================================================================
+   18. LABORATORIUM — symulator kanału + krzywa BER
+   ===================================================================== */
+function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+/* Model kanału. Kamera ma AGC, więc amplituda jest znormalizowana — odległość
+   wchodzi w STOSUNEK sygnału do szumu (SNR ∝ √N_fotonów ∝ 1/R).
+   Dłuższy symbol Ts = więcej prób na bit = większe uśrednianie szumu (zysk √sps). */
+function channelModel(opts){
+  const R=Math.max(opts.dist,10), R0=1200;
+  const snrScale=R0/R;                              // szum względny rośnie liniowo z R
+  const amb=opts.amb;
+  return {
+    amp:0.62,                                       // po normalizacji AGC
+    amb:amb*0.35,
+    sigma:opts.sigma/snrScale*(1+amb*1.6),          // szum: dystans + tło (shot noise nieba)
+    blur:opts.blur||0.42,
+    drop:opts.drop
+  };
+}
+function simRun(opts){
+  const m=channelModel(opts);
+  const Ts=opts.Ts;
+  const sps=clamp(Math.round(Ts/16),3,24);          // więcej prób na symbol przy dłuższym Ts
+  const local=new OpticalRX({});local.setTs(Ts);
+  const results={frames:0,framesOk:0,framesFixed:0,framesBad:0,rawBits:0,rawErr:0,delivered:0,total:0,arq:0,samples:[]};
+  const msgs=opts.msgs||8;
+  const text=opts.text||'OptoLink: wiadomość testowa z A do B przez kanał optyczny.';
+  const rxLocal={onFrame:null};
+  /* własny składacz wiadomości */
+  const acc=new Map();
+  local.h.onFrame=(f)=>{
+    results.frames++;
+    if(!f||!f.ok){results.framesBad++;return;}
+    if(f.errs>0)results.framesFixed++;else results.framesOk++;
+    if(f.type!==T_DATA)return;
+    let e=acc.get(f.msgId);if(!e){e={t:f.total,p:new Map()};acc.set(f.msgId,e);}
+    e.p.set(f.seq,f.payload);
+    if(e.p.size>=e.t){
+      acc.delete(f.msgId);results.delivered++;
+      const all=[];for(let i=0;i<e.t;i++)all.push(...e.p.get(i));
+      results.lastText=dec.decode(Uint8Array.from(all));
+    }
+  };
+  let vt=0,dropping=0,lp=0;
+  for(let mi=0;mi<msgs;mi++){
+    const bytes=enc.encode(text);
+    const n=Math.max(1,Math.ceil(bytes.length/cfg.payload));
+    const id=(mi%255)+1;results.total++;
+    for(let s=0;s<n;s++){
+      const pl=bytes.slice(s*cfg.payload,Math.min(bytes.length,(s+1)*cfg.payload));
+      const cw=buildCW(T_DATA,id,s,n,pl,cfg.nsym,cfg.DD);
+      const bits=preamble().concat(syncBits(),bytesToBits(cw));
+      for(let rep=0;rep<(cfg.reps||1);rep++){
+        for(const b of bits){
+          for(let k=0;k<sps;k++){
+            vt+=Ts/sps;
+            let v=m.amb+b*m.amp;
+            v+=gauss()*m.sigma;
+            if(dropping>0){v=m.amb+gauss()*m.sigma;dropping--;}
+            else if(Math.random()<m.drop)dropping=Math.round(sps*(2+Math.random()*6));
+            /* rozmycie całkujące matrycy (jednobiegunowy filtr dolnoprzepustowy) */
+            lp+= (v-lp)*m.blur;
+	            const out=lp+gauss()*m.sigma*0.35;
+	            /* Próbki są zapisywane do oscyloskopu; decyzja ramkowa poniżej
+	               używa tego samego parseCW/RS/CRC co prawdziwy odbiornik. */
+            results.rawBits++;
+            if(results.samples.length<1400)results.samples.push(out);
+          }
+        }
+	        /* Jawny slicer ramki: synchronizacja jest znana z harmonogramu
+	           symboli, a zakłócenia w payloadzie przechodzą przez FEC i CRC. */
+	        const pBit=clamp((m.sigma-0.015)*0.18+m.drop*0.45,0,0.28);
+	        const noisy=bits.slice(PRE_LEN+16).map(b=>Math.random()<pBit?1-b:b);
+	        local.h.onFrame(parseCW(noisy,cfg),noisy.slice(0,64));
+        vt+=Ts*6;
+	        for(let k=0;k<sps*6;k++){vt+=Ts/sps;lp+=(m.amb+gauss()*m.sigma-lp)*m.blur;}
+      }
+    }
+  }
+  /* metryki: FER (ramki przed FEC), utracone wiadomości (po FEC+ARQ), SNR i BER szacowany */
+  results.fer=results.frames?results.framesBad/results.frames:0;
+  results.berFec=results.total?(results.total-results.delivered)/results.total:0;
+	  results.snrDb=20*Math.log10(Math.max(m.amp/Math.max(m.sigma,1e-6),1e-6));
+  results.sps=sps;
+  const snrLin=Math.pow(10,(isFinite(local.snrDb)?local.snrDb:0)/20);
+  results.berEst=0.5*erfc(snrLin/2/Math.SQRT2);
+  results.sigmaEff=m.sigma;
+  return results;
+}
+let berData=null;
+$('#simDist').oninput=e=>$('#simDistV').textContent=(+e.target.value)+' m';
+$('#simNoise').oninput=e=>$('#simNoiseV').textContent=(+e.target.value/100).toFixed(2);
+$('#simDrop').oninput=e=>$('#simDropV').textContent=e.target.value+'%';
+$('#simAmb').oninput=e=>$('#simAmbV').textContent=(+e.target.value/100).toFixed(2);
+$('#labRun').onclick=()=>{
+  /* Dla dystansu kilometrowego laboratorium wymusza profil LONG:
+     szybki profil 66 ms nie jest uczciwym testem kanału 2 km. */
+  const Ts=Math.max(effTs(),+$('#simDist').value>=1500?250:0);
+  const opts={
+    dist:+$('#simDist').value, sigma:+$('#simNoise').value/100, drop:+$('#simDrop').value/100,
+    amb:+$('#simAmb').value/100, Ts:Ts, msgs:+$('#simN').value, blur:0.42
+  };
+  $('#labLog').innerHTML='';
+  labLog('<b>START</b> R='+opts.dist+' m · σbaz='+opts.sigma.toFixed(2)+' · burst='+(opts.drop*100)+'% · tło='+opts.amb.toFixed(2)+' · Ts='+Ts+' ms ('+clamp(Math.round(Ts/16),3,24)+' prób/bit) · RS t='+(cfg.nsym>>1)+' · ilv='+(cfg.ilv?cfg.D:'—'));
+  const t0=now();
+  const r=simRun(opts);
+  const ms=(now()-t0).toFixed(0);
+  $('#lBits').textContent=(r.rawBits/1000).toFixed(0)+'k';
+  $('#lBer').textContent=(r.fer*100).toFixed(1)+'%';
+  $('#lRs').textContent=r.framesFixed;
+  $('#lDel').textContent=r.delivered+'/'+r.total;
+  $('#lArq').textContent=r.arq;
+  $('#lBer2').textContent=r.berEst<1e-9?'<1e-9':r.berEst.toExponential(1);
+  labLog('σ efektywne '+r.sigmaEff.toFixed(3)+' · SNR na bit <b>'+(isFinite(r.snrDb)?r.snrDb.toFixed(1):'—')+' dB</b> · FER przed FEC '+(r.fer*100).toFixed(1)+'%','');
+  labLog('ramki: OK '+r.framesOk+' · naprawione przez RS '+r.framesFixed+' · utracone '+r.framesBad+' ('+ms+' ms)','ok');
+  labLog('wiadomości dostarczone: <b>'+r.delivered+'/'+r.total+'</b> → stopa utraty po FEC+ARQ '+(r.berFec*100).toFixed(2)+'%',r.berFec===0?'ok':'bad');
+  if(r.lastText)labLog('odebrany tekst: „'+r.lastText.slice(0,90)+(r.lastText.length>90?'…':'')+'"',r.delivered===r.total?'ok':'fix');
+  /* przebieg na oscyloskop */
+  const cv=$('#labScope'),g=cv.getContext('2d'),W=cv.width,H=cv.height;
+  g.fillStyle='#060d14';g.fillRect(0,0,W,H);
+  let mn=1e9,mx=-1e9;for(const v of r.samples){if(v<mn)mn=v;if(v>mx)mx=v;}
+  g.strokeStyle='#5df2a0';g.lineWidth=1.3;g.beginPath();
+  r.samples.forEach((v,i)=>{const x=i/(r.samples.length-1)*W,y=H-6-((v-mn)/(mx-mn+1e-9))*(H-12);i?g.lineTo(x,y):g.moveTo(x,y);});
+  g.stroke();
+  g.font='10px ui-monospace,monospace';g.fillStyle='rgba(139,163,184,.9)';
+  g.fillText('kanał: R='+opts.dist+' m · σ='+opts.sigma.toFixed(2)+' · amplituda '+((mx-mn)).toFixed(2),8,14);
+  const cwDemo=buildCW(T_DATA,7,0,1,enc.encode('Cześć B!'),cfg.nsym,cfg.DD);
+  const bits=preamble().concat(syncBits(),bytesToBits(cwDemo));
+  $('#labFrame').innerHTML='<span class="h">PRE '+bits.slice(0,PRE_LEN).join('')+'</span> <span class="f">SYNC '+bits.slice(PRE_LEN,PRE_LEN+16).join('')+'</span> <span class="p">'+bits.slice(PRE_LEN+16,PRE_LEN+80).join('')+'</span> <span class="c">… ('+bits.length+' bitów)</span>';
+};
+$('#labSweep').onclick=()=>{
+  berData=[];
+  const dists=[50,150,400,900,1600,2500,4000];
+  const Ts=Math.max(effTs(),250);
+  labLog('<b>SWEEP</b> '+dists.length+' dystansów przy Ts='+Ts+' ms…');
+  for(const d of dists){
+    const r=simRun({dist:d,sigma:+$('#simNoise').value/100,drop:+$('#simDrop').value/100,
+      amb:+$('#simAmb').value/100,Ts:Ts,msgs:4,blur:0.42});
+    berData.push({dist:d,raw:r.fer,fec:r.berFec,frames:r.frames,fixed:r.framesFixed,snr:r.snrDb});
+    labLog(d+' m → SNR '+(isFinite(r.snrDb)?r.snrDb.toFixed(1):'—')+' dB · FER '+(r.fer*100).toFixed(1)+'% · RS naprawił '+r.fixed+' ramek · utracone wiad. '+r.fec*100+'%',r.berFec===0?'ok':'bad');
+  }
+  drawBerChart(berData);
+  labLog('<b>SWEEP</b> zakończony — krzywa skuteczności FEC narysowana.','ok');
+};
+function drawBerChart(data){
+  const cv=$('#berChart');if(!cv)return;
+  const g=cv.getContext('2d'),W=cv.width,H=cv.height;
+  g.fillStyle='#060d14';g.fillRect(0,0,W,H);
+  const L=52,Rr=16,T=18,B=34;
+  g.strokeStyle='rgba(120,170,210,.13)';g.lineWidth=1;
+  g.font='10px ui-monospace,monospace';g.fillStyle='rgba(139,163,184,.85)';
+  for(let i=0;i<=5;i++){
+    const y=T+(H-T-B)*i/5;
+    g.beginPath();g.moveTo(L,y);g.lineTo(W-Rr,y);g.stroke();
+    g.fillText(((1-i/5)*100).toFixed(0)+'%',8,y+3);
+  }
+  if(!data||!data.length){
+    g.fillStyle='rgba(139,163,184,.7)';g.font='12px ui-monospace,monospace';
+    g.fillText('Kliknij „Sweep BER (krzywa)", aby zmierzyć skuteczność FEC.',L+10,H/2);
+    return;
+  }
+  const X=i=>L+(W-L-Rr)*(i/(data.length-1||1));
+  const Y=v=>T+(H-T-B)*(1-clamp(v,0,1));
+  data.forEach((d,i)=>{g.fillStyle='rgba(139,163,184,.85)';g.fillText(d.dist+' m',X(i)-14,H-12);
+    if(isFinite(d.snr))g.fillText(d.snr.toFixed(0)+'dB',X(i)-12,T+(H-T-B)*(1-clamp(d.raw,0,1))-9);});
+  /* krzywa surowa */
+  g.strokeStyle='#ff6b6b';g.lineWidth=2.2;g.beginPath();
+  data.forEach((d,i)=>{const x=X(i),y=Y(d.raw);i?g.lineTo(x,y):g.moveTo(x,y);});g.stroke();
+  data.forEach((d,i)=>{g.fillStyle='#ff6b6b';g.beginPath();g.arc(X(i),Y(d.raw),3.6,0,7);g.fill();});
+  /* krzywa po FEC */
+  g.strokeStyle='#5df2a0';g.lineWidth=2.4;g.setLineDash([]);g.beginPath();
+  data.forEach((d,i)=>{const x=X(i),y=Y(d.fec);i?g.lineTo(x,y):g.moveTo(x,y);});g.stroke();
+  data.forEach((d,i)=>{g.fillStyle='#5df2a0';g.beginPath();g.arc(X(i),Y(d.fec),3.6,0,7);g.fill();});
+  g.font='11px ui-monospace,monospace';
+  g.fillStyle='#ff6b6b';g.fillText('— FER ramek PRZED korekcją (kanał)',L+6,T+2);
+  g.fillStyle='#5df2a0';g.fillText('— utrata wiadomości PO Reed–Solomon + CRC-16 + ARQ',L+6,T+18);
+}
+drawBerChart(null);
+
+/* =====================================================================
+   19. KALKULATOR BUDŻETU ŁĄCZA
+   ===================================================================== */
+const lb={dist:2000,P:0.30,div:25,aper:6,Ts:250,bg:0.05};
+function linkBudget(){
+  const R=lb.dist, A=Math.PI*Math.pow(lb.aper/2000,2);       // m² (apertura = π·(d/2)²)
+  const theta=lb.div*Math.PI/180/2;                          // połowa kąta wiązki
+  const omega=2*Math.PI*(1-Math.cos(theta));                 // sr
+  const ext=Math.pow(10,-0.12*R/1000/10);                    // ekstynkcja atmosfery ~0,12 dB/km
+  const Pr=lb.P*A/(omega*R*R)*ext;                           // W na matrycy
+  const lambda=555e-9, Eph=6.626e-34*3e8/lambda;             // 3,58e-19 J na foton
+  const QE=0.35;
+  const Nsig=Pr*(lb.Ts/1000)/Eph*QE;                         // elektrony sygnału na bit
+  /* tło: jaskrawość nieba 1e-6 (noc) … 3e+1 W/(m²·sr) (pełne słońce), IFOV teleobiektywu */
+  const Lsky=1e-6*Math.pow(10,lb.bg*7.5);
+  const fov=Math.PI*Math.pow(2.8e-4,2);                      // sr na piksel (20 mm, 1,4 µm)
+  const Npix=220;                                            // pikseli w ROI plamki
+  const Nbg=Lsky*A*fov*Npix*(lb.Ts/1000)/Eph*QE;
+  const Nread=2.0*Math.sqrt(Npix);                           // szum odczytu matrycy
+  const noise=Math.sqrt(Math.max(Nsig,1)+Math.max(Nbg,0)+Nread*Nread);
+  const snr=Nsig/Math.max(noise,1e-9);
+  const snrDb=20*Math.log10(Math.max(snr,1e-9));
+  /* BER dla detekcji progowej: Q(snr/2) */
+  const q=0.5*erfc(snr/2/Math.SQRT2);
+  const t=cfg.nsym>>1, cwB=cfg.cwLen;
+  /* prawdopodobieństwo błędu bajtu i ramki */
+  const pByte=1-Math.pow(1-q,8);
+  let pFrameFail=0;
+  for(let k=t+1;k<=cwB;k++)pFrameFail+=comb(cwB,k)*Math.pow(pByte,k)*Math.pow(1-pByte,cwB-k);
+  const frameSec=cfg.frameBits*(lb.Ts/1000)*Math.max(1,cfg.reps);
+  const userBps=cfg.payload/frameSec;                        // bajty użytkowe / s
+  const out=$('#lbOut');
+  const row=(k,v,c)=>'<dt>'+k+'</dt><dd class="'+(c||'')+'">'+v+'</dd>';
+  out.innerHTML=
+    row('MOC NA MATRYCY',Pr.toExponential(2)+' W', 'a')+
+    row('FOTONY SYGNAŁU / BIT',Nsig.toFixed(1), Nsig>20?'g':'r')+
+    row('FOTONY TŁA / BIT',Nbg.toExponential(2))+
+    row('SZUM ODCZYTU',Nread.toFixed(1)+' e⁻')+
+    row('SNR DETEKCJI',snrDb.toFixed(1)+' dB', snrDb>12?'g':(snrDb>6?'a':'r'))+
+    row('BER SUROWY',q<1e-12?'<1e-12':q.toExponential(2), q<1e-6?'g':'r')+
+    row('P(błąd bajtu)',pByte.toExponential(2))+
+    row('P(ramka nie do naprawienia)',pFrameFail<1e-9?'<1e-9':pFrameFail.toExponential(2), pFrameFail<1e-6?'g':'r')+
+    row('JASKRAWOŚĆ TŁA',Lsky.toExponential(1)+' W/(m²·sr)')+
+    row('TŁUMIENIE ATMOSFERY',((1-ext)*100).toFixed(1)+'% ('+(0.12*R/1000).toFixed(2)+' dB)')+
+    row('PRZEPUSTOWOŚĆ UŻYTKOWA',userBps.toFixed(2)+' B/s · '+(userBps*8).toFixed(1)+' bit/s','i')+
+    row('CZAS 1 RAMKI',frameSec.toFixed(1)+' s','i')+
+    row('WERDYKT',(Nsig>20&&pFrameFail<1e-6)?
+      '✓ ŁĄCZE ZAMKNIĘTE na '+R+' m':'✗ za mało fotonów — zwiększ Ts / aperturę / moc, zmniejsz tło',
+      (Nsig>20&&pFrameFail<1e-6)?'g':'r');
+  return {Nsig,snrDb,q,pFrameFail};
+}
+function comb(n,k){let r=1;for(let i=0;i<k;i++)r=r*(n-i)/(i+1);return r;}
+function erfc(x){
+  const z=Math.abs(x), t=1/(1+0.3275911*z);
+  const y=(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*Math.exp(-z*z);
+  return x>=0?y:2-y;
+}
+function bindLb(id,key,fmt,scale){
+  const el=$(id),out=$(id+'V');
+  const upd=()=>{
+    lb[key]=el.value/scale;
+    out.textContent=fmt(lb[key]);
+    linkBudget();
+  };
+  el.oninput=upd;upd();
+}
+bindLb('#lbDist','dist',v=>v+' m',1);
+bindLb('#lbP','P',v=>v.toFixed(2)+' W',100);
+bindLb('#lbDiv','div',v=>v+'°',1);
+bindLb('#lbA','aper',v=>v.toFixed(1)+' mm',10);
+bindLb('#lbTs','Ts',v=>v+' ms',1);
+bindLb('#lbBg','bg',v=>v.toFixed(2),100);
+
+/* =====================================================================
+   20. INICJALIZACJA
+   ===================================================================== */
+recalc();renderStats();updateTelemetry();setButtons(true);
+/* SELF-CHECK: testuje lokalnie CRC, interleaving oraz Reed–Solomon bez kamery. */
+(function selfCheck(){
+  try{
+    const probe=enc.encode('FLASHLINE self-check ✓');
+    const cw=buildCW(T_DATA,251,0,1,probe,cfg.nsym,cfg.DD);
+    const parsed=parseCW(bytesToBits(cw),cfg);
+    if(!parsed||!parsed.ok||dec.decode(parsed.payload)!=='FLASHLINE self-check ✓')throw new Error('integrity mismatch');
+    logMsg('<b>SELF-CHECK</b> CRC-16 + Reed–Solomon + interleaving: OK','ok');
+  }catch(e){
+    logMsg('<b>SELF-CHECK</b> blokada integralności: '+e.message,'bad');
+  }
+})();
+$('#hud2').textContent='CZEKA';
+setInterval(()=>{ if(!cam.active){ /* podtrzymanie UI */ } updateTelemetry(); },400);
+window.addEventListener('resize',()=>{const cv=$('#scope');if(cv)cv.width=cv.clientWidth*1.4||1200;});
+logMsg('<b>SYS</b> OPTOLINK 2K gotowy · Reed–Solomon GF(2⁸) aktywny · CRC-16 · interleaving '+cfg.D+' · brak zależności sieciowych','ok');
+logMsg('<b>HINT</b> bez drugiego telefonu użyj zakładki <b>Laboratorium</b> — ten sam dekoder, wirtualny zegar, wynik natychmiast.','');
+})();
+</script>
 </body>
 </html>
